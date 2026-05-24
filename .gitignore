@@ -1,0 +1,23 @@
+# 用户数据
+data/memory.db
+agent_experience_*.md
+
+# 构建产物
+KaoyanRAG-v*.zip
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# Streamlit
+.streamlit/
+
+# 依赖
+node_modules/
+
+# 临时文件
+*.log
+test_*.py
+temp/
