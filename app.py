@@ -332,7 +332,7 @@ def get_review_candidates():
     conn = sqlite3.connect(MEMORY_DB)
     c = conn.cursor()
     c.execute("""SELECT knowledge_id, mastery_level, status, stability, last_review
-        FROM knowledge_mastery WHERE user_id=? ORDER BY mastery_level ASC""", (uid,))
+        FROM knowledge_mastery WHERE user_id=? ORDER BY last_review DESC""", (uid,))
     results = c.fetchall()
     conn.close()
 
@@ -1239,9 +1239,7 @@ with mid_col:
     act_msg = st.session_state.pop("_action_msg", "")
     act_diag = st.session_state.pop("_action_diag", "")
     if act_msg:
-        st.success(act_msg)
-        if act_diag:
-            st.caption(act_diag)
+        st.success(f"{act_msg}  ·  {act_diag}" if act_diag else act_msg)
 
     last_output = st.session_state.get("_last_output")
     if last_output:
@@ -1270,8 +1268,15 @@ with mid_col:
                 if matched:
                     for kid in matched:
                         update_memory(kid, False, error_type="用户标记")
+                    # 立即验证 DB 写入
+                    vconn = sqlite3.connect(MEMORY_DB)
+                    vc = vconn.cursor()
+                    uid = st.session_state.get("user_id", 1)
+                    vc.execute("SELECT knowledge_id, status FROM knowledge_mastery WHERE knowledge_id=? AND user_id=?", (matched[0], uid))
+                    verify = vc.fetchone()
+                    vconn.close()
                     st.session_state._action_msg = f"已加入复习库 ({len(matched)}个知识点)"
-                    st.session_state._action_diag = f"🔍 匹配到: {matched}"
+                    st.session_state._action_diag = f"匹配: {matched} | DB验证: {verify}"
                 else:
                     st.session_state._action_msg = "未匹配到具体知识点"
                 log_visit("加入复习库", last_query[:50] if last_query else "")
