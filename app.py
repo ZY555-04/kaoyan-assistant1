@@ -1235,6 +1235,14 @@ with mid_col:
             st.session_state._last_results = results
 
     # 评价按钮（在 mid_col 内，不在 if submitted 内）
+    # 显示上一次操作的反馈消息
+    act_msg = st.session_state.pop("_action_msg", "")
+    act_diag = st.session_state.pop("_action_diag", "")
+    if act_msg:
+        st.success(act_msg)
+        if act_diag:
+            st.caption(act_diag)
+
     last_output = st.session_state.get("_last_output")
     if last_output:
         st.markdown("### 这个回答对你有帮助吗？")
@@ -1253,19 +1261,19 @@ with mid_col:
                             update_memory(kid, True)
                         add_thinking(f"智能匹配知识点: {matched}")
                 add_thinking("用户点击: 掌握了")
-                st.success("已记录为掌握！")
+                st.session_state._action_msg = "已记录为掌握！"
                 st.rerun()
         with col2:
             if st.button("📚 加入复习库", use_container_width=True):
                 last_query = st.session_state.get("_last_query", "")
                 matched = st.session_state.get("_matched_knowledge") or smart_match_knowledge(last_query)
-                st.write(f"🔍 匹配到: {matched}")
                 if matched:
                     for kid in matched:
                         update_memory(kid, False, error_type="用户标记")
-                    st.success(f"已加入复习库 ({len(matched)}个知识点)")
+                    st.session_state._action_msg = f"已加入复习库 ({len(matched)}个知识点)"
+                    st.session_state._action_diag = f"🔍 匹配到: {matched}"
                 else:
-                    st.info("未匹配到具体知识点")
+                    st.session_state._action_msg = "未匹配到具体知识点"
                 log_visit("加入复习库", last_query[:50] if last_query else "")
                 st.rerun()
 
