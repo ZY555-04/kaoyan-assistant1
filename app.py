@@ -606,7 +606,7 @@ def run_pipeline(query, results, model_name, img_data=None):
 
 任务1：根据参考资料回答用户问题。{"严格遵循 Skill 的格式要求。" if skill_prompt else "使用LaTeX公式（$...$），回答简洁准确。"}
 
-任务2：判断问题涉及的知识点，输出对应的文档文件名。
+任务2：判断问题涉及的知识点，输出概念名称（如：导数, 定积分, 矩阵）。
 
 任务3：生成2道与问题相关的选择题，每题有4个选项、正确答案和详细解析。
 
@@ -615,7 +615,7 @@ def run_pipeline(query, results, model_name, img_data=None):
 （在这里写下你的回答）
 
 [KNOWLEDGE]
-（知识点文档名，多个用逗号分隔，如 004-导数.md, 012-定积分.md）
+（知识点概念名称，多个用逗号分隔，如 导数, 定积分, 矩阵）
 
 [QUIZ]
 Q: 题目文本（公式用 $...$）
