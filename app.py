@@ -373,8 +373,8 @@ def render_qa_cards(raw_text, columns=2):
         return
     blocks = raw_text.split("---")
     cols = st.columns(columns)
-    padding = "20px" if columns == 1 else "14px"
-    min_h = "260px" if columns == 1 else "220px"
+    padding = "20px" if columns == 1 else "18px"
+    min_h = "260px" if columns == 1 else "250px"
     qi = 0
     for block in blocks:
         block = block.strip()
@@ -1253,9 +1253,10 @@ with tab2:
                 with c3:
                     gen_key = f"rev_gen_{i}"
                     if st.button(f"🎲 出题", key=gen_key):
-                        gen_r = generate_review_questions([{"knowledge_id": c['knowledge_id']}])
-                        if gen_r.get("success"):
-                            render_qa_cards(gen_r['questions'], columns=1)
+                        with st.spinner("🎲 生成题目中..."):
+                            gen_r = generate_review_questions([{"knowledge_id": c['knowledge_id']}])
+                            if gen_r.get("success"):
+                                render_qa_cards(gen_r['questions'], columns=2)
 
         if not candidates:
             st.success("🎉 暂无待复习知识点。使用问答后自动添加。")
