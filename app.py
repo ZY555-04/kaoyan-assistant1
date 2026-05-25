@@ -1160,12 +1160,18 @@ with mid_col:
         add_thinking(f"回答完成")
         log_visit("提问", f"{query[:50]}")
 
-        # 知识点归纳（从 LLM 输出中直接提取）
+        # 知识点归纳（从 LLM 输出中直接提取，并归一化为实际文件名）
         if output.get("knowledge"):
+            from difflib import get_close_matches
+            corpus_ids = [d["id"] for d in corpus]
+            validated = []
             for kid in output["knowledge"]:
+                match = get_close_matches(kid.strip(), corpus_ids, n=1, cutoff=0.1)
+                validated.append(match[0] if match else kid.strip())
+            for kid in validated:
                 update_memory(kid, False, error_type="自动归纳")
-            add_thinking(f"自动归纳知识点: {output['knowledge']}")
-            st.session_state._matched_knowledge = output["knowledge"]
+            add_thinking(f"自动归纳知识点: {validated}")
+            st.session_state._matched_knowledge = validated
 
         # 参考来源
         if results:
