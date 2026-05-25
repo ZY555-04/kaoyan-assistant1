@@ -1135,13 +1135,18 @@ with mid_col:
     st.markdown("### 💬 智能问答")
     with st.form("qa_form", clear_on_submit=False):
         query = st.text_input("🔍 输入你的考研问题", placeholder="例如：什么是导数？", key="query_input")
+        uploaded_img = st.file_uploader("📷 题目截图", type=["png","jpg","jpeg"], label_visibility="collapsed")
         submitted = st.form_submit_button("提问", use_container_width=True)
 
-    if submitted and query:
+    img_data = None
+    if uploaded_img:
+        img_data = base64.b64encode(uploaded_img.getvalue()).decode()
+
+    if submitted and (query or img_data):
         with st.spinner("🤖 AI 思考中..."):
-            add_thinking(f"查询: {query[:30]}...")
-            results = search_corpus(query, corpus, top_k=3)
-            output = run_pipeline(query, results, st.session_state.selected_model)
+            add_thinking(f"查询: {query[:30]}..." if query else "图片识别...")
+            results = search_corpus(query, corpus, top_k=3) if query else []
+            output = run_pipeline(query or "请识别并解答图中的数学题目", results, st.session_state.selected_model, img_data)
 
         # AI回答
         st.markdown('<div class="qa-card">', unsafe_allow_html=True)
