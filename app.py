@@ -422,29 +422,27 @@ def generate_review_questions(knowledge_points):
     try:
         kb_list = "\n".join([f"{i+1}. {kp['knowledge_id']}" for i, kp in enumerate(knowledge_points[:3])])
 
-        system_prompt = """你是考研数学辅导专家。根据知识点出3道复习练习题。
-
+        system_prompt = """你是考研数学辅导专家。根据知识点出2道练习题。
 要求：
 1. 题目覆盖给出的知识点
-2. 包含选择题或计算题
-3. 所有数学公式使用 LaTeX：$...$ 行内，$$...$$ 独立
-4. 题目后附正确答案和解题步骤"""
+2. 包含选择题
+3. 所有数学公式使用 LaTeX：$...$
+4. 每题用 --- 分隔，格式如下：
+
+Q: 题目文本
+A) 选项1
+B) 选项2
+C) 选项3
+D) 选项4
+ANSWER: 正确选项字母
+EXPLAIN: 详细解析（含步骤）
+---"""
 
         user_prompt = f"""请为以下知识点生成复习题目：
 
 {kb_list}
 
-请按以下格式输出：
-
-## 题目1：[知识点1相关]
-A. 选项1
-B. 选项2
-C. 选项3
-D. 选项4
-
-答案：[正确答案]
-
-解答：[详细步骤]
+按格式输出："""
 
 ## 题目2：[知识点2相关]
 ...
@@ -1145,9 +1143,11 @@ with mid_col:
         st.markdown("**📊 记忆系统** — 自动追踪每个知识点的掌握程度，根据遗忘曲线推送复习内容。")
 
     st.markdown("### 💬 智能问答")
-    query = st.text_input("🔍 输入你的考研问题", placeholder="例如：什么是导数？", key="query_input")
+    with st.form("qa_form", clear_on_submit=False):
+        query = st.text_input("🔍 输入你的考研问题", placeholder="例如：什么是导数？", key="query_input")
+        submitted = st.form_submit_button("提问", use_container_width=True)
 
-    if query:
+    if submitted and query:
         with st.spinner("🤖 AI 思考中..."):
             add_thinking(f"查询: {query[:30]}...")
             results = search_corpus(query, corpus, top_k=3)
