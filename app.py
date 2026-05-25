@@ -366,12 +366,14 @@ def create_review_challenge(kid):
 
 # ==================== 复习题目生成 ====================
 
-def render_qa_cards(raw_text):
+def render_qa_cards(raw_text, columns=2):
     """渲染练习题：选项直接显示，答案/解析折叠"""
     if not raw_text:
         return
     blocks = raw_text.split("---")
-    cols = st.columns(2)
+    cols = st.columns(columns)
+    padding = "20px" if columns == 1 else "14px"
+    min_h = "260px" if columns == 1 else "220px"
     qi = 0
     for block in blocks:
         block = block.strip()
@@ -398,10 +400,10 @@ def render_qa_cards(raw_text):
                     explain += " " + line
                 elif not question:
                     question = line
-        with cols[qi % 2]:
-            st.markdown(f"<div style='background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);min-height:220px;'>", unsafe_allow_html=True)
+        with cols[qi % columns]:
+            st.markdown(f"<div style='background:#fff;border-radius:12px;padding:{padding};box-shadow:0 1px 3px rgba(0,0,0,0.04);min-height:{min_h};'>", unsafe_allow_html=True)
             st.caption(f"第{qi+1}题")
-            st.markdown(question[:300])
+            st.markdown(question if columns == 1 else question[:300])
             if options:
                 st.markdown("\n".join(options[:4]))
             if answer or explain:
@@ -1246,7 +1248,7 @@ with tab2:
                     if st.button(f"🎲 出题", key=gen_key):
                         gen_r = generate_review_questions([{"knowledge_id": c['knowledge_id']}])
                         if gen_r.get("success"):
-                            render_qa_cards(gen_r['questions'])
+                            render_qa_cards(gen_r['questions'], columns=1)
 
         if not candidates:
             st.success("🎉 暂无待复习知识点。使用问答后自动添加。")
