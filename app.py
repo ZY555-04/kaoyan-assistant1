@@ -408,7 +408,8 @@ def render_qa_cards(raw_text, columns=2):
             st.caption(f"第{qi+1}题")
             st.markdown(question if columns == 1 else question[:300])
             if options:
-                st.markdown("\n".join(options[:4]))
+                for opt in options[:4]:
+                    st.markdown(opt)
             if answer or explain:
                 with st.expander("📖 答案与解析", expanded=False):
                     if answer:
@@ -416,10 +417,10 @@ def render_qa_cards(raw_text, columns=2):
                     if explain:
                         st.markdown(explain[:500])
             st.markdown("</div>", unsafe_allow_html=True)
-            st.components.v1.html("<script>MathJax.typesetPromise()</script>", height=0)
         qi += 1
         if qi >= 2:
             break
+    st.components.v1.html("<script>MathJax.typesetPromise()</script>", height=0)
 
 def generate_review_questions(knowledge_points):
     if not knowledge_points:
@@ -1233,40 +1234,40 @@ with mid_col:
             st.session_state._last_query = query
             st.session_state._last_results = results
 
-# 评价按钮（始终渲染，用上一次回答的上下文）
-last_output = st.session_state.get("_last_output")
-if last_output:
-    st.markdown("### 这个回答对你有帮助吗？")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("✅ 掌握了", use_container_width=True):
-            last_results = st.session_state.get("_last_results", [])
-            last_query = st.session_state.get("_last_query", "")
-            if last_results:
-                for r in last_results:
-                    update_memory(r['id'], True)
-            else:
-                matched = smart_match_knowledge(last_query)
+    # 评价按钮（在 mid_col 内，不在 if submitted 内）
+    last_output = st.session_state.get("_last_output")
+    if last_output:
+        st.markdown("### 这个回答对你有帮助吗？")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✅ 掌握了", use_container_width=True):
+                last_results = st.session_state.get("_last_results", [])
+                last_query = st.session_state.get("_last_query", "")
+                if last_results:
+                    for r in last_results:
+                        update_memory(r['id'], True)
+                else:
+                    matched = smart_match_knowledge(last_query)
+                    if matched:
+                        for kid in matched:
+                            update_memory(kid, True)
+                        add_thinking(f"智能匹配知识点: {matched}")
+                add_thinking("用户点击: 掌握了")
+                st.success("已记录为掌握！")
+                st.rerun()
+        with col2:
+            if st.button("📚 加入复习库", use_container_width=True):
+                last_query = st.session_state.get("_last_query", "")
+                matched = st.session_state.get("_matched_knowledge") or smart_match_knowledge(last_query)
+                st.write(f"🔍 匹配到: {matched}")
                 if matched:
                     for kid in matched:
-                        update_memory(kid, True)
-                    add_thinking(f"智能匹配知识点: {matched}")
-            add_thinking("用户点击: 掌握了")
-            st.success("已记录为掌握！")
-            st.rerun()
-    with col2:
-        if st.button("📚 加入复习库", use_container_width=True):
-            last_query = st.session_state.get("_last_query", "")
-            matched = st.session_state.get("_matched_knowledge") or smart_match_knowledge(last_query)
-            st.write(f"🔍 匹配到: {matched}")
-            if matched:
-                for kid in matched:
-                    update_memory(kid, False, error_type="用户标记")
-                st.success(f"已加入复习库 ({len(matched)}个知识点)")
-            else:
-                st.info("未匹配到具体知识点")
-            log_visit("加入复习库", last_query[:50] if last_query else "")
-            st.rerun()
+                        update_memory(kid, False, error_type="用户标记")
+                    st.success(f"已加入复习库 ({len(matched)}个知识点)")
+                else:
+                    st.info("未匹配到具体知识点")
+                log_visit("加入复习库", last_query[:50] if last_query else "")
+                st.rerun()
 
 # ==================== 底部Tab ====================
 st.markdown("---")
