@@ -983,21 +983,51 @@ def smart_match_knowledge(query):
     doc_names = [d["id"] for d in corpus]
     matched = []
     
-    for concept_raw in concepts:
-        # 先精确匹配文档名
-        concept = normalize(concept_raw)
-        close = get_close_matches(concept, doc_names, n=2, cutoff=0.1)
-        if close:
-            matched.extend(close)
-            continue
-        
-        # 回退：搜索文档内容中的关键词
-        for doc in corpus:
-            if concept in doc["text"][:500]:
-                matched.append(doc["id"])
-                break
+    # Layer 0: 精简别名表（高频概念精确映射）
+    ALIAS = {
+        "导数": "004-导数的定义与几何意义.md", "求导": "005-导数的计算法则.md",
+        "积分": "010-不定积分的概念与性质.md", "定积分": "012-定积分的定义与性质.md",
+        "方差": "098-二次型标准化.md", "标准差": "098-二次型标准化.md",
+        "正态分布": "047-常见连续分布.md", "正态": "047-常见连续分布.md",
+        "随机变量": "045-随机变量及其分布.md", "分布函数": "045-随机变量及其分布.md",
+        "特征值": "031-特征值与特征向量.md", "特征向量": "031-特征值与特征向量.md",
+        "洛必达": "007-洛必达法则.md",
+        "矩阵的秩": "091-矩阵的秩.md", "秩": "091-矩阵的秩.md",
+        "无穷小": "003-函数的连续性与间断点.md",
+        "级数": "067-无穷级数.md", "收敛": "086-常数项级数审敛.md",
+        "极大无关组": "029-向量组的秩.md", "向量组的秩": "029-向量组的秩.md",
+        "二重积分": "065-二重积分与三重积分.md",
+        "方向导数": "102-方向导数与梯度.md", "梯度": "102-方向导数与梯度.md",
+        "偏导数": "064-多元函数微分学.md", "全微分": "064-多元函数微分学.md",
+        "线性相关": "092-向量组的线性相关性.md",
+    }
     
-    return list(dict.fromkeys(matched))  # 去重保序
+    for concept_raw in concepts:
+        concept = normalize(concept_raw)
+        
+        # Layer 0: 别名直接命中
+        if concept in ALIAS:
+            matched.append(ALIAS[concept])
+            continue
+        for alias_key, alias_doc in ALIAS.items():
+            if alias_key in concept or concept in alias_key:
+                matched.append(alias_doc)
+                break
+        else:
+            # Layer 1: difflib 模糊匹配（短名优先 → 基础文档优先）
+            close = get_close_matches(concept, doc_names, n=3, cutoff=0.1)
+            if close:
+                close.sort(key=len)  # 短名 → 核心文档
+                matched.append(close[0])
+                continue
+            
+            # Layer 2: 全文内容回退
+            for doc in corpus:
+                if concept in doc["text"][:2000]:
+                    matched.append(doc["id"])
+                    break
+    
+    return list(dict.fromkeys(matched))
 
 # ==================== UI界面 ====================
 
