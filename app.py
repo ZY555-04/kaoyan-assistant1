@@ -282,7 +282,9 @@ def update_memory(kid, is_mastered, error_type="", mastery_score=0):
 
     status = "掌握" if is_mastered else "学习中"
 
-    c.execute("""INSERT OR REPLACE INTO knowledge_mastery
+    # 先删除旧记录（避免重复堆积）
+    c.execute("DELETE FROM knowledge_mastery WHERE knowledge_id=? AND user_id=?", (kid, uid))
+    c.execute("""INSERT INTO knowledge_mastery
         (knowledge_id, user_id, status, times_correct, times_wrong, stability, last_review, error_type)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (kid, uid, status, times_correct, times_wrong, stability, datetime.now(), error_type))
@@ -1204,7 +1206,7 @@ with mid_col:
             validated = []
             for kid in output["knowledge"]:
                 match = smart_match_knowledge(kid.strip())
-                validated.append(match[0] if match else kid.strip())
+                validated.append(match[0] if len(match) > 0 else kid.strip())
             validated = list(dict.fromkeys(validated))
             for kid in validated:
                 update_memory(kid, False, error_type="自动归纳")
@@ -1256,6 +1258,7 @@ if last_output:
         if st.button("📚 加入复习库", use_container_width=True):
             last_query = st.session_state.get("_last_query", "")
             matched = st.session_state.get("_matched_knowledge") or smart_match_knowledge(last_query)
+            st.write(f"🔍 匹配到: {matched}")
             if matched:
                 for kid in matched:
                     update_memory(kid, False, error_type="用户标记")
@@ -1285,6 +1288,14 @@ with tab1:
 with tab2:
     st.subheader("🎯 复习挑战")
     candidates = get_review_candidates()
+    # 诊断：直读 DB 前 5 条
+    uid = st.session_state.get("user_id", 1)
+    conn = sqlite3.connect(MEMORY_DB)
+    c = conn.cursor()
+    c.execute("SELECT knowledge_id, status FROM knowledge_mastery WHERE user_id=? LIMIT 5", (uid,))
+    db_raw = c.fetchall()
+    conn.close()
+    st.caption(f"📊 DB前5条: {[(r[0][:25], r[1]) for r in db_raw]}")
     if candidates:
         for i, c in enumerate(candidates[:5], 1):
             recall_pct = int(c['recall'] * 100)
