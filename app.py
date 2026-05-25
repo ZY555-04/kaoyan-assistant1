@@ -19,7 +19,7 @@ st.set_page_config(page_title="考研RAG智能助手", page_icon="📚", layout=
 # API配置
 API_KEY = os.environ.get("AI_API_KEY", "sk-Sav7yLJqAZ6FxCiXy2kCOOSelXOiDceY1YzhtCNsJArcu1dx")
 API_BASE = os.environ.get("AI_API_BASE", "https://aiberm.com/v1")
-MODEL_NAME = os.environ.get("AI_MODEL", "gpt-4o")
+MODEL_NAME = os.environ.get("AI_MODEL", "gpt-4o-mini")
 
 DATA_DIR = Path("data/corpus")
 DEMO_DATA_DIR = Path("data/corpus_demo")
@@ -610,24 +610,32 @@ def run_pipeline(query, results, model_name, img_data=None):
     skill_prompt = build_system_prompt_with_skills(st.session_state.get("active_skills", []))
     context = "\n\n".join([f"【{d['id']}】\n{d['text'][:800]}" for d in results[:3]]) if results else ""
 
-    system_prompt = f"""你是考研数学辅导专家。一次性完成以下任务，严格按标签输出：
+    system_prompt = f"""你是考研数学辅导专家。请完成以下任务并用标签输出：
 
+任务1：根据参考资料回答用户问题。{"严格遵循 Skill 的格式要求。" if skill_prompt else "使用LaTeX公式（$...$），回答简洁准确。"}
+
+任务2：判断问题涉及的知识点，输出对应的文档文件名。
+
+任务3：生成2道与问题相关的选择题，每题有4个选项、正确答案和详细解析。
+
+输出格式：
 [ANSWER]
-根据参考资料回答问题。{"按 Skill 要求格式输出。" if skill_prompt else "用LaTeX写公式（$...$），回答简洁准确。"}
+（在这里写下你的回答）
 
 [KNOWLEDGE]
-输出问题涉及的知识点文档名（多个用逗号分隔，如 004-导数的定义与几何意义.md, 012-定积分的定义与性质.md）。直接写文件名。
+（知识点文档名，多个用逗号分隔，如 004-导数.md, 012-定积分.md）
 
 [QUIZ]
-生成2道选择题，每题用 --- 分隔。数学公式用 $...$ 括起来。格式：
-Q: 题目
-A) 选项
-B) 选项
-C) 选项
-D) 选项
-ANSWER: 正确选项字母
-EXPLAIN: 详细解析（含步骤和公式）
+Q: 题目文本（公式用 $...$）
+A) 选项1
+B) 选项2
+C) 选项3
+D) 选项4
+ANSWER: B
+EXPLAIN: 详细解析含步骤
 ---
+Q: 题目2
+...
 [END]
 
 {skill_prompt if skill_prompt else ""}
@@ -1089,46 +1097,9 @@ with left_col:
 
     st.markdown("---")
 
-    # 模型选择
-    model_options = [
-        "gpt-4o (最强)",
-        "gpt-4o-mini (最便宜)",
-    ]
-
-    # 映射到实际模型名
-    model_map = {
-        "gpt-4o (最强)": "gpt-4o",
-        "gpt-4o-mini (最便宜)": "gpt-4o-mini",
-    }
-
-    selected_idx = st.selectbox(
-        "选择模型",
-        range(len(model_options)),
-        index=0,
-        format_func=lambda x: model_options[x]
-    )
-    st.session_state.selected_model = model_map[model_options[selected_idx]]
-
-    # 价格说明
-    st.markdown("""
-    <div style="font-size:12px;color:#666;margin-top:5px;">
-        💰 价格: gpt-4o-mini < gpt-4o < claude-3-haiku < claude-3-5-sonnet < gpt-4o
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown(f"""
-    <div class="current-model">
-        ✅ 当前模型: {st.session_state.selected_model}
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div class="model-info">
-        <span>速度: 快</span>
-        <span>质量: 最优</span>
-        <span>上下文: 200K</span>
-    </div>
-    """, unsafe_allow_html=True)
+    # 模型
+    st.session_state.selected_model = "gpt-4o-mini"
+    st.caption("模型: gpt-4o-mini")
 
     st.markdown("---")
 
