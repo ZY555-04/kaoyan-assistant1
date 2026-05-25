@@ -1199,14 +1199,13 @@ with mid_col:
         add_thinking(f"回答完成")
         log_visit("提问", f"{query[:50]}")
 
-        # 知识点归纳（从 LLM 输出中直接提取，并归一化为实际文件名）
+        # 知识点归纳（用 ALIAS 表归一化为实际文件名）
         if output.get("knowledge"):
-            from difflib import get_close_matches
-            corpus_ids = [d["id"] for d in corpus]
             validated = []
             for kid in output["knowledge"]:
-                match = get_close_matches(kid.strip(), corpus_ids, n=1, cutoff=0.1)
+                match = smart_match_knowledge(kid.strip())
                 validated.append(match[0] if match else kid.strip())
+            validated = list(dict.fromkeys(validated))
             for kid in validated:
                 update_memory(kid, False, error_type="自动归纳")
             add_thinking(f"自动归纳知识点: {validated}")
@@ -1227,33 +1226,44 @@ with mid_col:
             st.markdown("#### 📝 配套练习题")
             render_qa_cards(output["quiz"])
 
-            # 评价按钮
-            st.markdown("### 这个回答对你有帮助吗？")
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("✅ 掌握了", use_container_width=True):
-                    if results:
-                        for r in results:
-                            update_memory(r['id'], True)
-                    else:
-                        matched = smart_match_knowledge(query)
-                        if matched:
-                            for kid in matched:
-                                update_memory(kid, True)
-                            add_thinking(f"智能匹配知识点: {matched}")
-                    add_thinking("用户点击: 掌握了")
-                    st.success("已记录为掌握！")
-            with col2:
-                if st.button("📚 加入复习库", use_container_width=True):
-                    matched = st.session_state.get("_matched_knowledge") or smart_match_knowledge(query)
-                    if matched:
-                        for kid in matched:
-                            update_memory(kid, False, error_type="用户标记")
-                        st.success(f"已加入复习库 ({len(matched)}个知识点)")
-                    else:
-                        st.info("未匹配到具体知识点")
-                    log_visit("加入复习库", query[:50])
-                    st.rerun()
+            # 保存上下文到 session_state（供后续评价按钮使用）
+            st.session_state._last_output = output
+            st.session_state._last_query = query
+            st.session_state._last_results = results
+
+# 评价按钮（始终渲染，用上一次回答的上下文）
+last_output = st.session_state.get("_last_output")
+if last_output:
+    st.markdown("### 这个回答对你有帮助吗？")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ 掌握了", use_container_width=True):
+            last_results = st.session_state.get("_last_results", [])
+            last_query = st.session_state.get("_last_query", "")
+            if last_results:
+                for r in last_results:
+                    update_memory(r['id'], True)
+            else:
+                matched = smart_match_knowledge(last_query)
+                if matched:
+                    for kid in matched:
+                        update_memory(kid, True)
+                    add_thinking(f"智能匹配知识点: {matched}")
+            add_thinking("用户点击: 掌握了")
+            st.success("已记录为掌握！")
+            st.rerun()
+    with col2:
+        if st.button("📚 加入复习库", use_container_width=True):
+            last_query = st.session_state.get("_last_query", "")
+            matched = st.session_state.get("_matched_knowledge") or smart_match_knowledge(last_query)
+            if matched:
+                for kid in matched:
+                    update_memory(kid, False, error_type="用户标记")
+                st.success(f"已加入复习库 ({len(matched)}个知识点)")
+            else:
+                st.info("未匹配到具体知识点")
+            log_visit("加入复习库", last_query[:50] if last_query else "")
+            st.rerun()
 
 # ==================== 底部Tab ====================
 st.markdown("---")
