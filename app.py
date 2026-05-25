@@ -7,6 +7,7 @@ import os
 import json
 import sqlite3
 import math
+import time
 import base64
 from pathlib import Path
 from datetime import datetime
@@ -412,6 +413,7 @@ def render_qa_cards(raw_text, columns=2):
                         st.markdown(f"**正确答案**: {answer}")
                     if explain:
                         st.markdown(explain[:500])
+                    st.components.v1.html("<script>MathJax.typesetPromise()</script>", height=0)
             st.markdown("</div>", unsafe_allow_html=True)
         qi += 1
         if qi >= 2:
@@ -1145,10 +1147,15 @@ with mid_col:
         img_data = base64.b64encode(uploaded_img.getvalue()).decode()
 
     if submitted and (query or img_data):
-        with st.spinner("🤖 AI 思考中..."):
-            add_thinking(f"查询: {query[:30]}..." if query else "图片识别...")
-            results = search_corpus(query, corpus, top_k=3) if query else []
-            output = run_pipeline(query or "请识别并解答图中的数学题目", results, st.session_state.selected_model, img_data)
+        add_thinking(f"查询: {query[:30]}..." if query else "图片识别...")
+        progress = st.progress(0, text="🔎 检索知识库中...")
+        results = search_corpus(query, corpus, top_k=3) if query else []
+        progress.progress(30, text="🧠 AI 思考中...")
+        output = run_pipeline(query or "请识别并解答图中的数学题目", results, st.session_state.selected_model, img_data)
+        progress.progress(80, text="📝 生成练习题...")
+        progress.progress(100, text="✅ 完成")
+        time.sleep(0.3)
+        progress.empty()
 
         # AI回答
         st.markdown('<div class="qa-card">', unsafe_allow_html=True)
