@@ -1,5 +1,5 @@
 """
-考研RAG智能助手 - 完整恢复版
+考研学习助手 - Streamlit版
 运行: streamlit run app.py
 """
 import streamlit as st
@@ -15,7 +15,7 @@ import urllib.request
 import urllib.error
 
 # ==================== 配置 ====================
-st.set_page_config(page_title="考研RAG智能助手", page_icon="📚", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="考研学习助手", page_icon="📚", layout="wide", initial_sidebar_state="expanded")
 
 # API配置
 API_KEY = os.environ.get("AI_API_KEY", "23de6f0b1df140369657e9173f80365d.G3YTxmmnzbE5jYQT")
@@ -429,7 +429,7 @@ def generate_review_questions(knowledge_points):
     try:
         kb_list = "\n".join([f"{i+1}. {kp['knowledge_id']}" for i, kp in enumerate(knowledge_points[:3])])
 
-        system_prompt = """你是考研数学辅导专家。根据知识点出2道练习题。
+        system_prompt = """你是考研数学辅导专家。根据知识点出1道练习题。
 要求：包含选择题，公式用 LaTeX $...$。每题用 --- 分隔，格式：
 
 Q: 题目
@@ -545,7 +545,8 @@ def classify_query(query):
 def parse_multi_output(raw_text):
     """解析 LLM 一次输出的 [ANSWER]/[KNOWLEDGE]/[QUIZ]"""
     if "[ANSWER]" not in raw_text:
-        return {"answer": raw_text[:2000], "knowledge": [], "quiz": ""}
+        cleaned = raw_text.replace("\\(", "$").replace("\\)", "$").replace("\\[", "$$").replace("\\]", "$$")
+        return {"answer": cleaned[:2000], "knowledge": [], "quiz": ""}
     def extract(begin, end):
         if begin in raw_text and end in raw_text:
             return raw_text.split(begin, 1)[1].split(end, 1)[0].strip()
@@ -916,7 +917,7 @@ def smart_match_knowledge(query):
                 {"role": "system", "content": "从以下考研数学问题中提取1-3个核心知识点名称（每行一个，不要编号）。"},
                 {"role": "user", "content": query}
             ],
-            "max_tokens": 80, "temperature": 0
+            "max_tokens": 500, "temperature": 0.3
         }
         req = urllib.request.Request(API_BASE + "/chat/completions",
             data=json.dumps(data).encode('utf-8'),
@@ -1012,7 +1013,7 @@ if not st.session_state.logged_in:
         st.stop()
     st.markdown("""
     <div class="main-title">
-        <h1>📚 考研RAG智能助手</h1>
+        <h1>📚 考研学习助手</h1>
         <p>多用户知识问答系统</p>
     </div>
     """, unsafe_allow_html=True)
@@ -1068,7 +1069,7 @@ add_thinking(f"用户 {st.session_state.get('username','?')} 登录")
 # 顶部标题
 st.markdown("""
 <div class="main-title">
-    <h1>📚 考研RAG智能助手</h1>
+    <h1>📚 考研学习助手</h1>
     <p>基于本地知识库的智能问答系统 | 支持自学习、遗忘曲线、经验积累</p>
 </div>
 """, unsafe_allow_html=True)
@@ -1206,9 +1207,9 @@ with mid_col:
     last_output = st.session_state.get("_last_output")
     if last_output:
         # 出2道练习题按钮
-        if st.button("🎲 出2道练习题", use_container_width=True):
+        if st.button("🎲 生成复习题", use_container_width=True):
             last_query = st.session_state.get("_last_query", "")
-            matched = smart_match_knowledge(last_query)
+            matched = st.session_state.get("_matched_knowledge") or []
             if matched:
                 with st.spinner("🎲 生成题目中..."):
                     st.session_state._btn_quiz = generate_review_questions([{"knowledge_id": m} for m in matched[:2]])
