@@ -20,7 +20,7 @@ st.set_page_config(page_title="考研RAG智能助手", page_icon="📚", layout=
 # API配置
 API_KEY = os.environ.get("AI_API_KEY", "23de6f0b1df140369657e9173f80365d.G3YTxmmnzbE5jYQT")
 API_BASE = os.environ.get("AI_API_BASE", "https://api.z.ai/api/coding/paas/v4")
-MODEL_NAME = os.environ.get("AI_MODEL", "glm-4.7")
+MODEL_NAME = os.environ.get("AI_MODEL", "glm-4.6")
 
 DATA_DIR = Path("data/corpus")
 DEMO_DATA_DIR = Path("data/corpus_demo")
@@ -418,7 +418,7 @@ def render_qa_cards(raw_text, columns=2):
                         st.markdown(explain)
             st.markdown("</div>", unsafe_allow_html=True)
         qi += 1
-        if qi >= 2:
+        if qi >= 1:
             break
     st.components.v1.html("<script>MathJax.typesetPromise()</script>", height=0)
 
@@ -453,8 +453,8 @@ EXPLAIN: 详细解析（含步骤）
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            "max_tokens": 500,
-            "temperature": 0.7
+            "max_tokens": 300,
+            "temperature": 0
         }
 
         req = urllib.request.Request(
@@ -467,7 +467,7 @@ EXPLAIN: 详细解析（含步骤）
             method='POST'
         )
 
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with urllib.request.urlopen(req, timeout=60) as response:
             result = json.loads(response.read().decode('utf-8'))
             return {
                 "success": True,
@@ -483,38 +483,15 @@ def generate_local_questions(knowledge_points):
     if not knowledge_points:
         return {"error": "无复习知识点", "questions": ""}
 
-    questions = "## 🎯 今日复习挑战\n\n"
-
-    for i, kp in enumerate(knowledge_points[:3], 1):
-        kid = kp.get("knowledge_id", f"知识点{i}")
-        level = kp.get("mastery_level", 50)
-        status = kp.get("status", "学习中")
-
-        if level < 30:
-            difficulty = "基础题"
-            question = f"请回忆 {kid} 的定义和基本概念"
-        elif level < 60:
-            difficulty = "中等题"
-            question = f"请解释 {kid} 的原理，并举例说明"
-        else:
-            difficulty = "提高题"
-            question = f"运用 {kid} 解决以下问题：..."
-
-        questions += f"""### 题目 {i}（{difficulty}）
-📚 知识点：{kid}
-📊 掌握程度：{level}% | 状态：{status}
-
-❓ {question}
-
-<details>
-<summary>点击查看答案</summary>
-
-答案：{kid} 的核心要点如下...
-</details>
-
----
-"""
-
+    kid = knowledge_points[0].get("knowledge_id", "知识点")
+    questions = f"""Q: 请回忆 {kid} 的定义和基本概念
+A) 查看知识点
+B) 看文档
+C) 翻资料
+D) 点展开
+ANSWER: A
+EXPLAIN: 在知识库中查看完整内容
+---"""
     return {
         "success": True,
         "questions": questions,
@@ -1107,8 +1084,8 @@ with left_col:
     st.markdown("---")
 
     # 模型
-    st.session_state.selected_model = "glm-4.7"
-    st.caption("模型: glm-4.7")
+    st.session_state.selected_model = "glm-4.6"
+    st.caption("模型: glm-4.6")
 
     st.markdown("---")
 
@@ -1315,11 +1292,15 @@ with tab2:
                         with st.spinner("🎲 生成题目中..."):
                             gen_r = generate_review_questions([{"knowledge_id": c['knowledge_id']}])
                             st.session_state._rev_quiz = gen_r
+                            st.session_state._rev_quiz_id = i
                             st.rerun()
 
-        quiz = st.session_state.pop("_rev_quiz", None)
-        if quiz and quiz.get("success"):
-            render_qa_cards(quiz['questions'], columns=2)
+            if st.session_state.get("_rev_quiz_id") == i:
+                quiz = st.session_state.pop("_rev_quiz", None)
+                st.session_state.pop("_rev_quiz_id", None)
+                if quiz and quiz.get("success"):
+                    render_qa_cards(quiz['questions'], columns=1)
+                    st.components.v1.html("<script>MathJax.typesetPromise()</script>", height=0)
 
         if not candidates:
             st.success("🎉 暂无待复习知识点。使用问答后自动添加。")
