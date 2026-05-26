@@ -567,6 +567,8 @@ def classify_query(query):
 
 def parse_multi_output(raw_text):
     """解析 LLM 一次输出的 [ANSWER]/[KNOWLEDGE]/[QUIZ]"""
+    if "[ANSWER]" not in raw_text:
+        return {"answer": raw_text[:2000], "knowledge": [], "quiz": ""}
     def extract(begin, end):
         if begin in raw_text and end in raw_text:
             return raw_text.split(begin, 1)[1].split(end, 1)[0].strip()
@@ -640,8 +642,8 @@ Q: 题目2
             result["qtype"] = qtype
             result["pipeline_log"] = pipeline_log
             return result
-    except:
-        return {"answer": f"【问题】\n{query}\n\n请直接回答：", "knowledge": [], "quiz": "", "qtype": qtype, "pipeline_log": pipeline_log}
+    except Exception as e:
+        return {"answer": f"[系统提示] API调用失败: {str(e)[:100]}", "knowledge": [], "quiz": "", "qtype": qtype, "pipeline_log": pipeline_log}
 
 # ==================== LLM调用 ====================
 
