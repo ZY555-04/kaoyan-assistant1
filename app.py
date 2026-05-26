@@ -595,7 +595,9 @@ def run_pipeline(query, results, model_name, img_data=None):
     else:
         user_content = f"问题：{query}"
     model = "glm-4v-flash" if img_data else model_name
-    data = {"model": model, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_content}], "max_tokens": 2500, "temperature": 0.3}
+    max_tok = 800 if img_data else 2500
+    temp = 0.3 if not img_data else 0
+    data = {"model": model, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_content}], "max_tokens": max_tok, "temperature": temp}
     req = urllib.request.Request(API_BASE + "/chat/completions", data=json.dumps(data).encode('utf-8'), headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {API_KEY}'}, method='POST')
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
@@ -920,7 +922,7 @@ def smart_match_knowledge(query):
             data=json.dumps(data).encode('utf-8'),
             headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {API_KEY}'},
             method='POST')
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with urllib.request.urlopen(req, timeout=20) as resp:
             concepts = json.loads(resp.read().decode('utf-8'))['choices'][0]['message']['content']
             concepts = [c.strip().strip("-•*") for c in concepts.split("\n") if c.strip()]
     except:
