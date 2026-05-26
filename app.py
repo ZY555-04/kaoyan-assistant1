@@ -597,31 +597,24 @@ def run_pipeline(query, results, model_name, img_data=None):
 
 任务2：判断问题涉及的知识点，输出概念名称（如：导数, 定积分, 矩阵）。
 
-任务3：生成2道与问题相关的选择题，每题有4个选项、正确答案和详细解析。
+任务3：生成2道选择题，每题4个选项+正确答案+解析。
 
-输出格式：
+输出格式（3个标签缺一不可）：
 [ANSWER]
-（在这里写下你的回答）
+（回答）
 
 [KNOWLEDGE]
-（知识点概念名称，多个用逗号分隔，如 导数, 定积分, 矩阵）
+（概念名，逗号分隔）
 
 [QUIZ]
-Q: 题目文本（公式用 $...$）
-A) 选项1
-B) 选项2
-C) 选项3
-D) 选项4
-ANSWER: B
-EXPLAIN: 详细解析含步骤
+Q: 题目（公式用$...$）
+A) 选项 B) 选项 C) 选项 D) 选项
+ANSWER: 字母
+EXPLAIN: 解析含步骤
 ---
-Q: 题目2
-...
 [END]
 
 {skill_prompt if skill_prompt else ""}
-
-**注意: 无论回答格式如何，必须输出 [ANSWER]、[KNOWLEDGE]、[QUIZ] 全部部分。**
 
 参考资料：
 {context}"""
@@ -636,9 +629,10 @@ Q: 题目2
     data = {"model": model_name, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_content}], "max_tokens": 2500, "temperature": 0.3}
     req = urllib.request.Request(API_BASE + "/chat/completions", data=json.dumps(data).encode('utf-8'), headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {API_KEY}'}, method='POST')
     try:
-        with urllib.request.urlopen(req, timeout=45) as resp:
+        with urllib.request.urlopen(req, timeout=120) as resp:
             raw = json.loads(resp.read().decode('utf-8'))['choices'][0]['message']['content']
             result = parse_multi_output(raw)
+            result["_raw_debug"] = raw[:500]  # 诊断：看 GLM 实际输出
             result["qtype"] = qtype
             result["pipeline_log"] = pipeline_log
             return result
@@ -1188,6 +1182,10 @@ with mid_col:
         st.markdown(output.get("answer", ""))
         st.components.v1.html("<script>MathJax.typesetPromise()</script>", height=0)
         st.markdown('</div>', unsafe_allow_html=True)
+        # 诊断：GLM 原始输出
+        if output.get("_raw_debug"):
+            with st.expander("🔧 GLM原始输出（诊断）"):
+                st.code(output["_raw_debug"])
         add_thinking(f"回答完成")
         log_visit("提问", f"{query[:50]}")
 
