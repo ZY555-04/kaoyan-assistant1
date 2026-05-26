@@ -467,7 +467,7 @@ EXPLAIN: 详细解析（含步骤）
             method='POST'
         )
 
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with urllib.request.urlopen(req, timeout=120) as response:
             result = json.loads(response.read().decode('utf-8'))
             return {
                 "success": True,
@@ -1315,12 +1315,10 @@ with tab2:
                 with c3:
                     gen_key = f"rev_gen_{i}"
                     if st.button(f"🎲 出题", key=gen_key):
-                        bar = st.progress(0, text="🎲 准备出题...")
-                        gen_r = generate_review_questions([{"knowledge_id": c['knowledge_id']}])
-                        bar.progress(100, text="✅ 完成")
-                        if gen_r.get("success"):
-                            render_qa_cards(gen_r['questions'], columns=1)
-                        bar.empty()
+                        with st.spinner("🎲 生成题目中..."):
+                            gen_r = generate_review_questions([{"knowledge_id": c['knowledge_id']}])
+                            if gen_r.get("success"):
+                                render_qa_cards(gen_r['questions'], columns=1)
 
         if not candidates:
             st.success("🎉 暂无待复习知识点。使用问答后自动添加。")
