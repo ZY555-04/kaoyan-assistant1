@@ -578,30 +578,14 @@ def parse_multi_output(raw_text):
     }
 
 def run_pipeline(query, results, model_name, img_data=None):
-    """多Agent管线: Math 合并一次调用 / English&Politics 原逻辑"""
+    """统一管线: Router分类 → 一次调用出全部"""
     pipeline_log = []
     
-    # ① Router 分类
+    # ① Router 分类（仅用于日志）
     qtype = classify_query(query)
     pipeline_log.append(f"🧭 Router → {qtype}")
     
-    # ② English / Politics: 保持原快速路径
-    if qtype in ("english", "politics"):
-        system_override = ENGLISH_PROMPT if qtype == "english" else POLITICS_PROMPT
-        skill_prompt = build_system_prompt_with_skills(st.session_state.get("active_skills", []))
-        system_prompt = system_override
-        system_prompt = (skill_prompt + "\n\n---\n\n" + system_prompt) if skill_prompt else system_prompt
-        user_prompt = f"【问题】\n{query}\n\n请直接回答："
-        data = {"model": model_name, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], "max_tokens": 1200, "temperature": 0.3}
-        req = urllib.request.Request(API_BASE + "/chat/completions", data=json.dumps(data).encode('utf-8'), headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {API_KEY}'}, method='POST')
-        try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                answer = json.loads(resp.read().decode('utf-8'))['choices'][0]['message']['content']
-        except:
-            answer = query
-        return {"answer": answer, "knowledge": [], "quiz": "", "qtype": qtype, "pipeline_log": pipeline_log}
-    
-    # ③ Math: 一次调用出全部
+    # ② 统一 Math 路径：一次调用出全部
     skill_prompt = build_system_prompt_with_skills(st.session_state.get("active_skills", []))
     context = "\n\n".join([f"【{d['id']}】\n{d['text'][:800]}" for d in results[:3]]) if results else ""
 
