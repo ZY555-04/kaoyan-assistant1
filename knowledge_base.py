@@ -490,26 +490,12 @@ def render_knowledge_page():
             st.markdown("---")
             st.subheader("📝 识别结果预览")
 
-            col_preview, col_copy = st.columns([3, 1])
-            with col_preview:
-                st.caption(f"识别文字：{len(ocr_text)} 字 | 章节：{chapter_name}")
-            with col_copy:
-                st.markdown(
-                    f"""<script>
-                    function copyText_{material_id}() {{
-                        navigator.clipboard.writeText(document.getElementById('ocr_{material_id}').innerText);
-                        alert('已复制到剪贴板！');
-                    }}
-                    </script>
-                    <button onclick="copyText_{material_id}()" style="background:#d77757;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;">📋 复制识别文字</button>
-                    <div id="ocr_{material_id}" style="display:none;">{ocr_text[:5000]}</div>""",
-                    unsafe_allow_html=True
-                )
+            st.caption(f"识别文字：{len(ocr_text)} 字 | 章节：{chapter_name}")
 
             edited_text = st.text_area(
                 "识别结果（可编辑，修正识别错误后点击确认）",
                 value=ocr_text[:5000],
-                height=300,
+                height=min(300, 250),
                 key="ocr_edit_area"
             )
 

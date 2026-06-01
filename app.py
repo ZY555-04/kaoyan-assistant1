@@ -43,34 +43,46 @@ st.markdown("""
     .main-title h1 { font-size: 2rem; font-weight: 700; margin: 0; }
     .main-title p { opacity: 0.9; margin-top: 0.5rem; }
 
-    .card { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 15px; }
-
     .memory-card { padding: 12px; margin: 8px 0; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #d77757; cursor: pointer; transition: all 0.3s; }
     .memory-card:hover { transform: translateX(5px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); background: #fff; }
 
-    .answer-box { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); min-height: 150px; }
-
-    .source-item { padding: 10px; margin: 8px 0; background: #f8f9fa; border-left: 4px solid #d77757; border-radius: 5px; }
-
-    .metric-box { text-align: center; padding: 15px; background: #f8f9fa; border-radius: 10px; }
-    .metric-value { font-size: 28px; font-weight: bold; color: #d77757; }
-    .metric-label { font-size: 12px; color: #666; margin-top: 5px; }
-
-    .stat-item { text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px; }
-    .stat-value { font-size: 24px; font-weight: bold; color: #d77757; }
-    .stat-label { font-size: 12px; color: #666; }
-
-    .upload-area { border: 2px dashed #ddd; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 15px; cursor: pointer; }
-    .upload-area:hover { border-color: #d77757; }
-
-    .doc-item { padding: 8px; margin: 5px 0; background: #f8f9fa; border-radius: 5px; font-size: 13px; }
-
-    .learning-card { padding: 8px; margin: 3px 0; background: #fff8f0; border-radius: 6px; border-left: 3px solid #e8926a; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .mastered-card { padding: 8px; margin: 3px 0; background: #f0faf4; border-radius: 6px; border-left: 3px solid #7cb896; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .learning-card { padding: 8px; margin: 3px 0; background: #fff8f0; border-radius: 6px; border-left: 3px solid #e8926a; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+    .mastered-card { padding: 8px; margin: 3px 0; background: #f0faf4; border-radius: 6px; border-left: 3px solid #7cb896; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
 
     .qa-card { background: #fff; border-radius: 14px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(215,119,87,0.06); margin-bottom: 16px; }
     .ref-tag { display: inline-block; background: #fef5f0; color: #8b5a3c; padding: 3px 10px; border-radius: 20px; margin: 2px 4px; font-size: 12px; border: 1px solid #f0ddd0; }
-    .user-pill { display: inline-block; background: #d77757; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+
+    .cal-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; text-align: center; }
+    .cal-grid .cal-cell { padding: 4px 0; }
+    .cal-grid .cal-cell small { font-size: 11px; }
+
+    @media (max-width: 1024px) {
+        .main-title h1 { font-size: 1.6rem !important; }
+        .qa-card { padding: 18px !important; }
+    }
+
+    @media (max-width: 768px) {
+        .main-title { padding: 1rem !important; }
+        .main-title h1 { font-size: 1.3rem !important; }
+        .main-title p { font-size: 0.85rem !important; }
+        .qa-card { padding: 14px !important; font-size: 14px !important; }
+        .learning-card, .mastered-card { white-space: normal !important; font-size: 11px !important; }
+        .memory-card { padding: 8px !important; font-size: 13px !important; }
+        .ref-tag { font-size: 11px !important; padding: 2px 6px !important; }
+        .cal-grid { grid-template-columns: repeat(6, 1fr) !important; }
+        div[data-testid="stMetricValue"] { font-size: 1.1rem !important; }
+        div[data-testid="stMetricLabel"] { font-size: 0.75rem !important; }
+        div[data-testid="stHorizontalBlock"] { gap: 0.5rem !important; }
+    }
+
+    @media (max-width: 480px) {
+        .main-title { padding: 0.8rem !important; }
+        .main-title h1 { font-size: 1.1rem !important; }
+        .qa-card { padding: 10px !important; }
+        .cal-grid { grid-template-columns: repeat(5, 1fr) !important; }
+        div[data-testid="stMetricValue"] { font-size: 0.95rem !important; }
+        div[data-testid="stMetricLabel"] { font-size: 0.7rem !important; }
+    }
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 """, unsafe_allow_html=True)
@@ -1661,7 +1673,7 @@ def render_qa_cards(raw_text, columns=2):
         # 题干中裸数学记号自动包 $（仅当无任何已有分隔符 \$ \[ \( 时触发）
         if re.search(r'\\[a-zA-Z]', question) and not re.search(r'[\$\\[]', question):
             question = re.sub(r'(\\[a-zA-Z]+(?:\{[^}]*\})*(?:_\{[^}]*\})*(?:\^\{[^}]*\})*|\w+\^\{?\d+\}?|\\,?[a-z]+|\w+\'\(\d+\))', r'$\1$', question)
-        st.markdown(f"<div style='background:#fff;border-radius:16px;padding:32px 40px;box-shadow:0 1px 3px rgba(0,0,0,0.04);margin-bottom:24px;font-size:16px;overflow-x:auto;'>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background:#fff;border-radius:16px;padding:clamp(14px,3vw,40px);box-shadow:0 1px 3px rgba(0,0,0,0.04);margin-bottom:24px;font-size:16px;overflow-x:auto;'>", unsafe_allow_html=True)
         st.caption(f"第{qi+1}题")
         st.markdown(_escape_md(_collapse_math(_fix_latex(question))))
         if options:
@@ -3059,7 +3071,7 @@ if st.session_state.page == "checkin":
         rows_30 = get_recent_checkins(checkin_user_id, 30)
         by_date_30 = {row["checkin_date"]: row for row in rows_30}
         start_date = date.today() - timedelta(days=29)
-        cal_cols = st.columns(10)
+        cal_cells = []
         for idx in range(30):
             day = start_date + timedelta(days=idx)
             key = day.strftime("%Y-%m-%d")
@@ -3068,12 +3080,10 @@ if st.session_state.page == "checkin":
             if row:
                 comp = float(row["completion_rate"] or 0)
                 marker = "🟢" if comp >= 80 else "🟡" if comp >= 60 else "🔴"
-                text = f"{marker}<br><small>{label}</small>"
+                cal_cells.append(f'<div class="cal-cell">{marker}<br><small>{label}</small></div>')
             else:
-                text = f"⚪<br><small>{label}</small>"
-            with cal_cols[idx % 10]:
-                st.markdown(f"<div style='text-align:center; line-height:1.3; padding:4px 0;'>{text}</div>",
-                    unsafe_allow_html=True)
+                cal_cells.append(f'<div class="cal-cell">⚪<br><small>{label}</small></div>')
+        st.markdown(f'<div class="cal-grid">{"".join(cal_cells)}</div>', unsafe_allow_html=True)
 
         # 学习趋势
         st.markdown("#### 学习趋势")
@@ -3169,33 +3179,33 @@ if st.session_state.page == "checkin":
 
         # 阶段说明卡片
         st.markdown(f"""
-        <div style="background:#f8f9fa; border-radius:12px; padding:20px; margin-bottom:20px; border-left:4px solid #d77757;">
+        <div style="background:#f8f9fa; border-radius:12px; padding:clamp(12px,2vw,20px); margin-bottom:20px; border-left:4px solid #d77757;">
             <h3 style="margin:0 0 12px 0; color:#333;">📊 当前阶段：{current_phase}</h3>
-            <table style="width:100%; border-collapse:collapse; font-size:14px;">
+            <table style="width:100%; border-collapse:collapse; font-size:clamp(12px,1.5vw,14px);">
                 <tr style="background:#d77757; color:#fff;">
-                    <th style="padding:8px 12px; text-align:left;">阶段</th>
-                    <th style="padding:8px 12px; text-align:left;">时间</th>
-                    <th style="padding:8px 12px; text-align:left;">核心任务</th>
+                    <th style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px); text-align:left;">阶段</th>
+                    <th style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px); text-align:left;">时间</th>
+                    <th style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px); text-align:left;">核心任务</th>
                 </tr>
                 <tr style="background:{'#fff8f0' if current_phase=='基础阶段' else '#fff'}">
-                    <td style="padding:8px 12px;">基础阶段</td>
-                    <td style="padding:8px 12px;">3-6月</td>
-                    <td style="padding:8px 12px;">全面打基础、吃透教材和基础题</td>
+                    <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">基础阶段</td>
+                    <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">3-6月</td>
+                    <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">全面打基础、吃透教材和基础题</td>
                 </tr>
                 <tr style="background:{'#fff8f0' if current_phase=='强化阶段' else '#f5f5f5'}">
-                    <td style="padding:8px 12px;">强化阶段</td>
-                    <td style="padding:8px 12px;">7-9月</td>
-                    <td style="padding:8px 12px;">专项突破、大量刷题、建立做题体系</td>
+                    <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">强化阶段</td>
+                    <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">7-9月</td>
+                    <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">专项突破、大量刷题、建立做题体系</td>
                 </tr>
                 <tr style="background:{'#fff8f0' if current_phase=='提升阶段' else '#fff'}">
-                    <td style="padding:8px 12px;">提升阶段</td>
-                    <td style="padding:8px 12px;">10-11月</td>
-                    <td style="padding:8px 12px;">真题实战、查漏补缺、模考检验</td>
+                    <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">提升阶段</td>
+                    <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">10-11月</td>
+                    <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">真题实战、查漏补缺、模考检验</td>
                 </tr>
                 <tr style="background:{'#fff8f0' if current_phase=='冲刺阶段' else '#f5f5f5'}">
-                    <td style="padding:8px 12px;">冲刺阶段</td>
-                    <td style="padding:8px 12px;">12月</td>
-                    <td style="padding:8px 12px;">高频考点押题、心理调整、保持手感</td>
+                    <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">冲刺阶段</td>
+                    <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">12月</td>
+                    <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">高频考点押题、心理调整、保持手感</td>
                 </tr>
             </table>
         </div>
@@ -3333,7 +3343,7 @@ if st.session_state.page == "checkin":
             seconds_left = remaining % 60
 
             st.markdown(f"""
-            <div style="text-align:center; font-size:4rem; font-weight:700; margin:1rem 0;">
+            <div style="text-align:center; font-size:clamp(2rem,8vw,4rem); font-weight:700; margin:1rem 0;">
                 {minutes_left:02d}:{seconds_left:02d}
             </div>
             """, unsafe_allow_html=True)
