@@ -1867,14 +1867,9 @@ def parse_multi_output(raw_text):
     }
 
 def run_pipeline(query, results, model_name, img_data=None):
-    """统一管线: Router分类 → 一次调用出全部"""
+    """统一管线: 流式调用 LLM，逐 token 返回"""
     pipeline_log = []
     
-    # ① Router 分类（仅用于日志）
-    qtype = classify_query(query)
-    pipeline_log.append(f"🧭 Router → {qtype}")
-    
-    # ② 统一 Math 路径：一次调用出全部
     skill_prompt = build_system_prompt_with_skills(st.session_state.get("active_skills", []))
     context = "\n\n".join([f"【{d['id']}】\n{d['text'][:800]}" for d in results[:3]]) if results else ""
 
@@ -1906,18 +1901,46 @@ def run_pipeline(query, results, model_name, img_data=None):
     model = "glm-4v-flash" if img_data else model_name
     max_tok = 800 if img_data else 2500
     temp = 0.3
-    data = {"model": model, "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_content}], "max_tokens": max_tok, "temperature": temp}
+    data = {
+        "model": model,
+        "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_content}],
+        "max_tokens": max_tok,
+        "temperature": temp,
+        "stream": True,
+    }
     req = urllib.request.Request(API_BASE + "/chat/completions", data=json.dumps(data).encode('utf-8'), headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {API_KEY}'}, method='POST')
     try:
+        raw_full = ""
         with urllib.request.urlopen(req, timeout=180) as resp:
-            raw = json.loads(resp.read().decode('utf-8'))['choices'][0]['message']['content']
-            result = parse_multi_output(raw)
-            result["_raw_debug"] = raw[:500]  # 诊断：看 GLM 实际输出
-            result["qtype"] = qtype
-            result["pipeline_log"] = pipeline_log
-            return result
+            buffer = ""
+            while True:
+                chunk = resp.read(1024)
+                if not chunk:
+                    break
+                buffer += chunk.decode("utf-8", errors="ignore")
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    line = line.strip()
+                    if not line.startswith("data: "):
+                        continue
+                    payload = line[6:]
+                    if payload == "[DONE]":
+                        break
+                    try:
+                        obj = json.loads(payload)
+                        delta = obj.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                        if delta:
+                            raw_full += delta
+                            yield {"type": "token", "content": delta}
+                    except json.JSONDecodeError:
+                        pass
+        result = parse_multi_output(raw_full)
+        result["_raw_debug"] = raw_full[:500]
+        result["qtype"] = "math"
+        result["pipeline_log"] = pipeline_log
+        yield {"type": "done", "result": result}
     except Exception as e:
-        return {"answer": f"[系统提示] API调用失败: {str(e)[:100]}", "knowledge": [], "quiz": "", "qtype": qtype, "pipeline_log": pipeline_log}
+        yield {"type": "done", "result": {"answer": f"[系统提示] API调用失败: {str(e)[:100]}", "knowledge": [], "quiz": "", "qtype": "math", "pipeline_log": pipeline_log}}
 
 # ==================== LLM调用 ====================
 
@@ -3511,16 +3534,22 @@ with mid_col:
         progress = st.progress(0, text="🔎 检索知识库中...")
         results = search_corpus(query, corpus, top_k=3) if query else []
         progress.progress(30, text="🧠 AI 思考中...")
-        output = run_pipeline(query or "请识别并解答图中的数学题目", results, st.session_state.selected_model, img_data)
-        progress.progress(80, text="📝 生成练习题...")
-        progress.progress(100, text="✅ 完成")
-        time.sleep(0.3)
         progress.empty()
 
-        # AI回答
+        # 流式渲染回答
         st.markdown('<div class="qa-card">', unsafe_allow_html=True)
         st.markdown("### 💡 回答")
-        st.markdown(_escape_md(_collapse_math(output.get("answer", ""))))
+        answer_placeholder = st.empty()
+        full_text = ""
+        output = None
+        for event in run_pipeline(query or "请识别并解答图中的数学题目", results, st.session_state.selected_model, img_data):
+            if event["type"] == "token":
+                full_text += event["content"]
+                answer_placeholder.markdown(_escape_md(_collapse_math(full_text)))
+            elif event["type"] == "done":
+                output = event["result"]
+        if output and output.get("answer") and not full_text:
+            answer_placeholder.markdown(_escape_md(_collapse_math(output["answer"])))
         _katex_refresh()
         st.markdown('</div>', unsafe_allow_html=True)
         # 诊断：GLM 原始输出
@@ -3574,6 +3603,8 @@ with mid_col:
     if last_output:
         # 出2道练习题按钮
         if st.button("🎲 生成复习题", use_container_width=True):
+            last_query = st.session_state.get("_last_query", "")
+            matched = st.session_state.get("_matched_knowledge") or smart_match_knowledge(last_query)
             if matched:
                 progress_bar = st.progress(0, text="🎲 开始生成题目...")
                 progress_bar.progress(30, text="正在分析知识点...")
