@@ -12,9 +12,9 @@ from datetime import datetime
 from pathlib import Path
 
 # ==================== 配置 ====================
-API_KEY = os.environ.get("AI_API_KEY", "23de6f0b1df140369657e9173f80365d.G3YTxmmnzbE5jYQT")
-API_BASE = os.environ.get("AI_API_BASE", "https://api.z.ai/api/coding/paas/v4")
-MODEL_NAME = os.environ.get("AI_MODEL", "glm-4.6")
+API_KEY = os.environ.get("AI_API_KEY", "sk-c4f69ncnuomnc8pprclmhlasndea7tdjvxeo49jno3bzxpa6")
+API_BASE = os.environ.get("AI_API_BASE", "https://api.xiaomimimo.com/v1")
+MODEL_NAME = os.environ.get("AI_MODEL", "mimo-v2.5")
 MEMORY_DB = "data/memory.db"
 DATA_DIR = Path("data/corpus")
 
@@ -128,7 +128,7 @@ def test_classify_query(query):
         {"role": "system", "content": ROUTER_PROMPT},
         {"role": "user", "content": query},
     ]
-    return call_api("glm-4-flash", messages, max_tokens=30, timeout=20)
+    return call_api("mimo-v2.5", messages, max_tokens=30, timeout=20)
 
 def test_main_llm_call(query, context):
     """测试主 LLM 调用（最大瓶颈）"""
@@ -161,7 +161,7 @@ def test_smart_match_knowledge(query, corpus):
         {"role": "system", "content": "从以下考研数学问题中提取1-3个核心知识点名称（每行一个，不要编号）。"},
         {"role": "user", "content": query},
     ]
-    concept_result, concept_time = call_api("glm-4-flash", messages, max_tokens=500, timeout=20)
+    concept_result, concept_time = call_api("mimo-v2.5", messages, max_tokens=500, timeout=20)
 
     if concept_result.startswith("[ERROR]"):
         return [], concept_time, 0

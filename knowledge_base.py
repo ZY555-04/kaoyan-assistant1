@@ -16,7 +16,7 @@ from pathlib import Path
 # ==================== 配置（从环境变量读取） ====================
 MEMORY_DB = os.environ.get("MEMORY_DB", "data/memory.db")
 API_KEY = os.environ.get("AI_API_KEY", "")
-API_BASE = os.environ.get("AI_API_BASE", "https://api.z.ai/api/coding/paas/v4")
+API_BASE = os.environ.get("AI_API_BASE", "https://api.xiaomimimo.com/v1")
 UMI_OCR_URL = os.environ.get("UMI_OCR_URL", "http://localhost:1224")
 
 
@@ -87,7 +87,7 @@ def ensure_db():
 
 # ==================== LLM 辅助 ====================
 
-def _call_llm_api(prompt, model="glm-4-flash", max_tokens=1500):
+def _call_llm_api(prompt, model="mimo-v2.5", max_tokens=1500):
     data = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
@@ -164,7 +164,7 @@ def extract_text_from_image(file_bytes):
     """用 glm-4v-flash 识别图片中的文字"""
     img_b64 = base64.b64encode(file_bytes).decode()
     data = {
-        "model": "glm-4v-flash",
+        "model": "mimo-v2.5",
         "messages": [{"role": "user", "content": [
             {"type": "text", "text": "请识别这张图片中的所有文字内容，只输出文字，不要添加任何说明。"},
             {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
@@ -211,7 +211,7 @@ def extract_knowledge_from_pdf_images(file_path, subject, chapter_name):
 - 如果没有知识点，输出「无」"""
 
         data = {
-            "model": "glm-4v-flash",
+            "model": "mimo-v2.5",
             "messages": [{"role": "user", "content": [
                 {"type": "text", "text": prompt},
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
@@ -257,7 +257,7 @@ def extract_knowledge_from_image(file_bytes, subject, chapter_name):
 - 如果是公式或定理，写出名称和简要含义"""
 
     data = {
-        "model": "glm-4v-flash",
+        "model": "mimo-v2.5",
         "messages": [{"role": "user", "content": [
             {"type": "text", "text": prompt},
             {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
@@ -288,7 +288,7 @@ def extract_knowledge_from_text(content, subject, chapter_name):
 
 内容：
 {content[:3000]}"""
-    return _call_llm_api(prompt, model="glm-4-flash", max_tokens=1500)
+    return _call_llm_api(prompt, model="mimo-v2.5", max_tokens=1500)
 
 
 # ==================== 数据库操作 ====================
@@ -655,7 +655,7 @@ C) 选项C
 D) 选项D
 ANSWER: 正确选项
 EXPLAIN: 解析"""
-                        result = _call_llm_api(quiz_prompt, model="glm-4-flash", max_tokens=1000)
+                        result = _call_llm_api(quiz_prompt, model="mimo-v2.5", max_tokens=1000)
                         st.markdown("---")
                         st.markdown("### 生成结果")
                         st.markdown(result)
