@@ -3595,12 +3595,15 @@ with mid_col:
         add_thinking(f"回答完成")
         log_visit("提问", f"{query[:50]}")
 
-        # 知识点归纳（用 ALIAS 表归一化为实际文件名）
+        # 知识点归纳（直接本地匹配，跳过LLM提取）
         if output.get("knowledge"):
-            validated = []
-            for kid in output["knowledge"]:
-                match = smart_match_knowledge(kid.strip())
-                validated.append(match[0] if len(match) > 0 else kid.strip())
+            idx = st.session_state.get("_knowledge_index")
+            if not idx:
+                idx = _build_knowledge_index(load_corpus())
+                st.session_state["_knowledge_index"] = idx
+            validated = match_knowledge_v2(output["knowledge"], idx)
+            if not validated:
+                validated = output["knowledge"]
             validated = list(dict.fromkeys(validated))
             for kid in validated:
                 update_memory(kid, False, error_type="自动归纳")
@@ -3639,8 +3642,15 @@ with mid_col:
     if last_output:
         # 出2道练习题按钮
         if st.button("🎲 生成复习题", use_container_width=True):
-            last_query = st.session_state.get("_last_query", "")
-            matched = st.session_state.get("_matched_knowledge") or smart_match_knowledge(last_query)
+            matched = st.session_state.get("_matched_knowledge")
+            if not matched:
+                last_output = st.session_state.get("_last_output", {})
+                if last_output.get("knowledge"):
+                    idx = st.session_state.get("_knowledge_index")
+                    if not idx:
+                        idx = _build_knowledge_index(load_corpus())
+                        st.session_state["_knowledge_index"] = idx
+                    matched = match_knowledge_v2(last_output["knowledge"], idx)
             if matched:
                 progress_bar = st.progress(0, text="🎲 开始生成题目...")
                 progress_bar.progress(30, text="正在分析知识点...")
@@ -3655,12 +3665,11 @@ with mid_col:
         with col1:
             if st.button("✅ 掌握了", use_container_width=True):
                 last_results = st.session_state.get("_last_results", [])
-                last_query = st.session_state.get("_last_query", "")
                 if last_results:
                     for r in last_results:
                         update_memory(r['id'], True)
                 else:
-                    matched = smart_match_knowledge(last_query)
+                    matched = st.session_state.get("_matched_knowledge")
                     if matched:
                         for kid in matched:
                             update_memory(kid, True)
@@ -3670,8 +3679,7 @@ with mid_col:
                 st.rerun()
         with col2:
             if st.button("📚 加入复习库", use_container_width=True):
-                last_query = st.session_state.get("_last_query", "")
-                matched = st.session_state.get("_matched_knowledge") or smart_match_knowledge(last_query)
+                matched = st.session_state.get("_matched_knowledge")
                 if matched:
                     for kid in matched:
                         update_memory(kid, False, error_type="用户标记")
