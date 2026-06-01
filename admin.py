@@ -9,14 +9,19 @@ st.set_page_config(page_title="考研RAG 管理后台", page_icon="🔐", layout
 ADMIN_PASS_FILE = Path.home() / ".kaoyan_admin_pass"
 MEMORY_DB = "data/memory.db"
 
-def get_admin_pass():
-    """首次自动生成密码"""
+def _ensure_admin_pass():
+    """启动时即生成密码文件，不等到登录"""
     if not ADMIN_PASS_FILE.exists():
         import secrets
         pw = secrets.token_hex(4)
         ADMIN_PASS_FILE.write_text(pw)
         return pw
     return ADMIN_PASS_FILE.read_text().strip()
+
+_ADMIN_PW = _ensure_admin_pass()
+
+def get_admin_pass():
+    return _ADMIN_PW
 
 def check_admin_password(pw):
     return hashlib.sha256(pw.encode()).hexdigest() == hashlib.sha256(get_admin_pass().encode()).hexdigest()
@@ -55,7 +60,7 @@ def query_db(sql, params=()):
     conn.close()
     return rows
 
-tab1, tab2, tab3, tab4 = st.tabs(["📜 实时日志", "👤 用户统计", "❓ 热门问题", "📅 按日期查询"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📜 实时日志", "👤 用户统计", "❓ 热门问题", "📅 按日期查询", "💬 用户建议"])
 
 with tab1:
     st.subheader("最近 100 条访问记录")
@@ -114,3 +119,16 @@ with tab4:
     st.caption(f"{date_str} 共 {len(rows)} 条记录")
     for t, u, a, d in rows:
         st.markdown(f"`{t[:19]}` **{u}** _{a}_ → {d[:50]}")
+
+with tab5:
+    st.subheader("用户建议")
+    rows = query_db("""
+        SELECT id, username, content, created_at FROM suggestions ORDER BY id DESC LIMIT 50
+    """)
+    if rows:
+        for sid, u, c, t in rows:
+            st.markdown(f"**{u}** `{t[:19]}`")
+            st.markdown(f"> {c}")
+            st.markdown("---")
+    else:
+        st.info("暂无建议")
