@@ -3536,19 +3536,30 @@ with mid_col:
         progress.progress(30, text="🧠 AI 思考中...")
         progress.empty()
 
-        # 流式渲染回答
+        # 流式渲染回答（只显示 [ANSWER] 部分，过滤标签）
         st.markdown('<div class="qa-card">', unsafe_allow_html=True)
         st.markdown("### 💡 回答")
         answer_placeholder = st.empty()
-        full_text = ""
+        raw_full = ""
+        answer_text = ""
+        in_answer = False
         output = None
         for event in run_pipeline(query or "请识别并解答图中的数学题目", results, st.session_state.selected_model, img_data):
             if event["type"] == "token":
-                full_text += event["content"]
-                answer_placeholder.markdown(_escape_md(_collapse_math(full_text)))
+                raw_full += event["content"]
+                if "[ANSWER]" in raw_full and not in_answer:
+                    in_answer = True
+                    answer_text = raw_full.split("[ANSWER]", 1)[1]
+                elif in_answer:
+                    answer_text += event["content"]
+                if "[KNOWLEDGE]" in answer_text:
+                    answer_text = answer_text.split("[KNOWLEDGE]")[0]
+                    in_answer = False
+                if answer_text.strip():
+                    answer_placeholder.markdown(_escape_md(_collapse_math(answer_text.strip())))
             elif event["type"] == "done":
                 output = event["result"]
-        if output and output.get("answer") and not full_text:
+        if output and output.get("answer"):
             answer_placeholder.markdown(_escape_md(_collapse_math(output["answer"])))
         _katex_refresh()
         st.markdown('</div>', unsafe_allow_html=True)
