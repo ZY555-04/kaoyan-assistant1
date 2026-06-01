@@ -1899,7 +1899,7 @@ def run_pipeline(query, results, model_name, img_data=None):
     else:
         user_content = f"问题：{query}"
     model = "glm-4v-flash" if img_data else model_name
-    max_tok = 800 if img_data else 2500
+    max_tok = 800 if img_data else 1500
     temp = 0.3
     data = {
         "model": model,
@@ -3531,34 +3531,45 @@ with mid_col:
 
     if submitted and (query or img_data):
         add_thinking(f"查询: {query[:30]}..." if query else "图片识别...")
-        progress = st.progress(0, text="🔎 检索知识库中...")
         results = search_corpus(query, corpus, top_k=3) if query else []
-        progress.progress(30, text="🧠 AI 思考中...")
-        progress.empty()
 
         # 流式渲染回答（只显示 [ANSWER] 部分，过滤标签）
         st.markdown('<div class="qa-card">', unsafe_allow_html=True)
         st.markdown("### 💡 回答")
         answer_placeholder = st.empty()
+        thinking_placeholder = st.empty()
+        thinking_placeholder.markdown("🧠 <span style='color:#d77757;font-weight:600;'>AI 正在思考...</span>", unsafe_allow_html=True)
+
         raw_full = ""
         answer_text = ""
         in_answer = False
         output = None
+        token_count = 0
+        last_render = 0
+        import time as _time
+
         for event in run_pipeline(query or "请识别并解答图中的数学题目", results, st.session_state.selected_model, img_data):
             if event["type"] == "token":
                 raw_full += event["content"]
+                token_count += 1
                 if "[ANSWER]" in raw_full and not in_answer:
                     in_answer = True
                     answer_text = raw_full.split("[ANSWER]", 1)[1]
+                    thinking_placeholder.empty()
                 elif in_answer:
                     answer_text += event["content"]
                 if "[KNOWLEDGE]" in answer_text:
                     answer_text = answer_text.split("[KNOWLEDGE]")[0]
                     in_answer = False
-                if answer_text.strip():
+                # 节流：每200ms或每20个token刷新一次
+                now = _time.time()
+                if answer_text.strip() and (now - last_render > 0.2 or token_count % 20 == 0):
                     answer_placeholder.markdown(_escape_md(_collapse_math(answer_text.strip())))
+                    last_render = now
             elif event["type"] == "done":
                 output = event["result"]
+        # 最终渲染
+        thinking_placeholder.empty()
         if output and output.get("answer"):
             answer_placeholder.markdown(_escape_md(_collapse_math(output["answer"])))
         _katex_refresh()
