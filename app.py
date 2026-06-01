@@ -94,6 +94,10 @@ st.components.v1.html("""
 
 # ==================== 核心功能 ====================
 
+def _extract_content(msg):
+    """从 API 响应中提取内容（兼容 MiMo 思维链模型的 reasoning_content 字段）"""
+    return msg.get("content") or msg.get("reasoning_content") or ""
+
 def read_file(p):
     try:
         return p.read_text(encoding="utf-8", errors="ignore")
@@ -782,7 +786,7 @@ def _extract_knowledge_from_pdf_images(file_path, subject, chapter_name):
         )
         try:
             with urllib.request.urlopen(req, timeout=90) as resp:
-                result = json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]["content"]
+                result = _extract_content(json.loads(resp.read().decode("utf-8"))["choices"][0]["message"])
             if "无" not in result[:10]:
                 all_knowledge.append(result)
         except Exception:
@@ -810,7 +814,7 @@ def _extract_text_from_image(file_bytes):
         method="POST"
     )
     with urllib.request.urlopen(req, timeout=60) as resp:
-        return json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]["content"]
+        return _extract_content(json.loads(resp.read().decode("utf-8"))["choices"][0]["message"])
 
 def _extract_knowledge_from_image(file_bytes, subject, chapter_name):
     """用多模态 AI 直接从图片提取知识点"""
@@ -847,7 +851,7 @@ def _extract_knowledge_from_image(file_bytes, subject, chapter_name):
         method="POST"
     )
     with urllib.request.urlopen(req, timeout=90) as resp:
-        return json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]["content"]
+        return _extract_content(json.loads(resp.read().decode("utf-8"))["choices"][0]["message"])
 
 def _extract_knowledge_from_text(content, subject, chapter_name):
     """用 LLM 从文本中提取知识点"""
@@ -1373,7 +1377,8 @@ def call_llm_api(prompt, model="mimo-v2.5", max_tokens=2000):
         method="POST"
     )
     with urllib.request.urlopen(req, timeout=90) as resp:
-        return json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]["content"]
+        msg = json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]
+        return msg.get("content") or msg.get("reasoning_content") or ""
 
 # 费曼学习法评价提示词
 CONCEPT_EVAL_PROMPT = """你是考研数学辅导专家，同时也是教育心理学专家。你的任务是评价学生对数学概念的理解和表达能力。
@@ -1929,7 +1934,9 @@ def run_pipeline(query, results, model_name, img_data=None):
                         break
                     try:
                         obj = json.loads(payload)
-                        delta = obj.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                        delta_obj = obj.get("choices", [{}])[0].get("delta", {})
+                        # MiMo 是思维链模型，内容在 reasoning_content 中
+                        delta = delta_obj.get("content") or delta_obj.get("reasoning_content") or ""
                         if delta:
                             raw_full += delta
                             yield {"type": "token", "content": delta}
@@ -1946,7 +1953,8 @@ def run_pipeline(query, results, model_name, img_data=None):
             data["stream"] = False
             req = urllib.request.Request(API_BASE + "/chat/completions", data=json.dumps(data).encode('utf-8'), headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {API_KEY}'}, method='POST')
             with urllib.request.urlopen(req, timeout=180) as resp:
-                raw_full = json.loads(resp.read().decode('utf-8'))['choices'][0]['message']['content']
+                msg = json.loads(resp.read().decode('utf-8'))['choices'][0]['message']
+                raw_full = msg.get('content') or msg.get('reasoning_content') or ''
                 yield {"type": "token", "content": raw_full}
             result = parse_multi_output(raw_full)
             result["_raw_debug"] = raw_full[:500]
@@ -2727,7 +2735,7 @@ if st.session_state.page == "english":
                             headers={"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"},
                             method="POST")
                         with urllib.request.urlopen(req, timeout=60) as resp:
-                            ocr_result = json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]["content"]
+                            ocr_result = _extract_content(json.loads(resp.read().decode("utf-8"))["choices"][0]["message"])
                         st.session_state._essay_ocr_text = ocr_result
                         st.rerun()
                     except Exception as e:
@@ -2887,7 +2895,7 @@ if st.session_state.page == "english":
                         headers={"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"},
                         method="POST")
                     with urllib.request.urlopen(req, timeout=120) as resp:
-                        result = json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]["content"]
+                        result = _extract_content(json.loads(resp.read().decode("utf-8"))["choices"][0]["message"])
                     st.markdown("---")
                     st.markdown(_escape_md(_collapse_math(_fix_latex(result))))
                     st.components.v1.html("<script>if(typeof renderMathInElement!=='undefined'){renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:!1})}</script>", height=0)
@@ -2931,7 +2939,7 @@ if st.session_state.page == "english":
                         headers={"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"},
                         method="POST")
                     with urllib.request.urlopen(req, timeout=90) as resp:
-                        result = json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]["content"]
+                        result = _extract_content(json.loads(resp.read().decode("utf-8"))["choices"][0]["message"])
                     st.markdown(_escape_md(_collapse_math(_fix_latex(result))))
                     log_visit("长难句解析", sentence_text[:40])
                 except Exception as e:
@@ -2976,7 +2984,7 @@ if st.session_state.page == "english":
                         headers={"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"},
                         method="POST")
                     with urllib.request.urlopen(req, timeout=90) as resp:
-                        result = json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]["content"]
+                        result = _extract_content(json.loads(resp.read().decode("utf-8"))["choices"][0]["message"])
                     st.markdown(_escape_md(_collapse_math(_fix_latex(result))))
                     log_visit("英语翻译", f"{translate_mode}: {translate_text[:30]}")
                 except Exception as e:
@@ -3017,7 +3025,7 @@ if st.session_state.page == "english":
                         headers={"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"},
                         method="POST")
                     with urllib.request.urlopen(req, timeout=60) as resp:
-                        result = json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]["content"]
+                        result = _extract_content(json.loads(resp.read().decode("utf-8"))["choices"][0]["message"])
                     st.markdown(_escape_md(_collapse_math(_fix_latex(result))))
                     log_visit("英语单词记忆", vocab_input[:30])
                 except Exception as e:
@@ -3595,15 +3603,12 @@ with mid_col:
         add_thinking(f"回答完成")
         log_visit("提问", f"{query[:50]}")
 
-        # 知识点归纳（直接本地匹配，跳过LLM提取）
+        # 知识点归纳（用 ALIAS 表归一化为实际文件名）
         if output.get("knowledge"):
-            idx = st.session_state.get("_knowledge_index")
-            if not idx:
-                idx = _build_knowledge_index(load_corpus())
-                st.session_state["_knowledge_index"] = idx
-            validated = match_knowledge_v2(output["knowledge"], idx)
-            if not validated:
-                validated = output["knowledge"]
+            validated = []
+            for kid in output["knowledge"]:
+                match = smart_match_knowledge(kid.strip())
+                validated.append(match[0] if len(match) > 0 else kid.strip())
             validated = list(dict.fromkeys(validated))
             for kid in validated:
                 update_memory(kid, False, error_type="自动归纳")
@@ -3642,15 +3647,8 @@ with mid_col:
     if last_output:
         # 出2道练习题按钮
         if st.button("🎲 生成复习题", use_container_width=True):
-            matched = st.session_state.get("_matched_knowledge")
-            if not matched:
-                last_output = st.session_state.get("_last_output", {})
-                if last_output.get("knowledge"):
-                    idx = st.session_state.get("_knowledge_index")
-                    if not idx:
-                        idx = _build_knowledge_index(load_corpus())
-                        st.session_state["_knowledge_index"] = idx
-                    matched = match_knowledge_v2(last_output["knowledge"], idx)
+            last_query = st.session_state.get("_last_query", "")
+            matched = st.session_state.get("_matched_knowledge") or smart_match_knowledge(last_query)
             if matched:
                 progress_bar = st.progress(0, text="🎲 开始生成题目...")
                 progress_bar.progress(30, text="正在分析知识点...")
@@ -3665,11 +3663,12 @@ with mid_col:
         with col1:
             if st.button("✅ 掌握了", use_container_width=True):
                 last_results = st.session_state.get("_last_results", [])
+                last_query = st.session_state.get("_last_query", "")
                 if last_results:
                     for r in last_results:
                         update_memory(r['id'], True)
                 else:
-                    matched = st.session_state.get("_matched_knowledge")
+                    matched = smart_match_knowledge(last_query)
                     if matched:
                         for kid in matched:
                             update_memory(kid, True)
@@ -3679,7 +3678,8 @@ with mid_col:
                 st.rerun()
         with col2:
             if st.button("📚 加入复习库", use_container_width=True):
-                matched = st.session_state.get("_matched_knowledge")
+                last_query = st.session_state.get("_last_query", "")
+                matched = st.session_state.get("_matched_knowledge") or smart_match_knowledge(last_query)
                 if matched:
                     for kid in matched:
                         update_memory(kid, False, error_type="用户标记")
@@ -3822,7 +3822,7 @@ with tab4:
                             headers={"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"},
                             method="POST")
                         with urllib.request.urlopen(req, timeout=30) as resp:
-                            ocr_result = json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]["content"]
+                            ocr_result = _extract_content(json.loads(resp.read().decode("utf-8"))["choices"][0]["message"])
                         st.session_state._feynman_ocr = ocr_result
                         st.rerun()
                     except Exception as e:
