@@ -3577,46 +3577,44 @@ with mid_col:
         add_thinking(f"查询: {query[:30]}..." if query else "图片识别...")
         results = search_corpus(query, corpus, top_k=3) if query else []
 
-        # 流式渲染回答（只显示 [ANSWER] 部分，过滤标签）
+        # 流式接收（只收集，不立即显示）
         st.markdown('<div class="qa-card">', unsafe_allow_html=True)
         st.markdown("### 💡 回答")
-        answer_placeholder = st.empty()
         thinking_placeholder = st.empty()
         thinking_placeholder.markdown("🧠 <span style='color:#d77757;font-weight:600;'>AI 正在思考...</span>", unsafe_allow_html=True)
 
         raw_full = ""
-        answer_text = ""
-        in_answer = False
         output = None
-        token_count = 0
-        last_render = 0
         import time as _time
 
         for event in run_pipeline(query or "请识别并解答图中的数学题目", results, st.session_state.selected_model, img_data):
             if event["type"] == "token":
                 raw_full += event["content"]
-                token_count += 1
-                if "[ANSWER]" in raw_full and not in_answer:
-                    in_answer = True
-                    answer_text = raw_full.split("[ANSWER]", 1)[1]
-                    thinking_placeholder.empty()
-                elif in_answer:
-                    answer_text += event["content"]
-                if "[KNOWLEDGE]" in answer_text:
-                    answer_text = answer_text.split("[KNOWLEDGE]")[0]
-                    in_answer = False
-                # 节流：每200ms或每20个token刷新一次
-                now = _time.time()
-                if answer_text.strip() and (now - last_render > 0.2 or token_count % 20 == 0):
-                    answer_placeholder.markdown(_escape_md(_collapse_math(answer_text.strip())))
-                    last_render = now
             elif event["type"] == "done":
                 output = event["result"]
-        # 最终渲染
+
+        # 流结束后，打字效果显示 [ANSWER] 部分
         thinking_placeholder.empty()
+        answer_text = ""
         if output and output.get("answer"):
-            answer_placeholder.markdown(_escape_md(_collapse_math(output["answer"])))
-        _katex_refresh()
+            answer_text = output["answer"]
+        elif raw_full:
+            # fallback: 从原始文本中提取
+            if "[ANSWER]" in raw_full:
+                answer_text = raw_full.split("[ANSWER]", 1)[1]
+                if "[KNOWLEDGE]" in answer_text:
+                    answer_text = answer_text.split("[KNOWLEDGE]")[0]
+            else:
+                answer_text = raw_full
+
+        if answer_text.strip():
+            answer_placeholder = st.empty()
+            displayed = ""
+            for char in _escape_md(_collapse_math(answer_text.strip())):
+                displayed += char
+                answer_placeholder.markdown(displayed)
+                _time.sleep(0.02)
+            _katex_refresh()
         st.markdown('</div>', unsafe_allow_html=True)
         # 诊断：GLM 原始输出
         if output.get("_raw_debug"):
