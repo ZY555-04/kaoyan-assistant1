@@ -18,7 +18,6 @@ import urllib.error
 import re
 import secrets
 import kaoyan_predict
-import extra_streamlit_components as stx
 
 # ==================== 配置 ====================
 st.set_page_config(page_title="考研学习助手", page_icon="📚", layout="wide", initial_sidebar_state="expanded")
@@ -94,13 +93,42 @@ st.components.v1.html("""
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 """, height=0)
 
-# ==================== Cookie 持久化登录 ====================
+# ==================== Cookie 持久化登录（纯 JS 实现） ====================
 
-@st.fragment
-def get_cookie_manager():
-    return stx.CookieManager()
+def set_auth_cookie(token, days=30):
+    """设置 auth_token cookie（JS）"""
+    max_age = days * 24 * 3600
+    st.components.v1.html(
+        f'<script>document.cookie="auth_token={token};max-age={max_age};path=/;SameSite=Lax";</script>',
+        height=0
+    )
 
-cookie_manager = get_cookie_manager()
+def get_auth_cookie():
+    """读取 auth_token cookie（JS → query_params）"""
+    # 先检查 query_params 中是否已有 token（JS 回写的结果）
+    params = st.query_params
+    if "auth_token" in params and params["auth_token"]:
+        return params["auth_token"]
+    # 注入 JS 读取 cookie 并通过 query_params 传回
+    st.components.v1.html("""
+    <script>
+    const m = document.cookie.split('; ').find(r => r.startsWith('auth_token='));
+    const v = m ? m.split('=')[1] : '';
+    if (v) {
+        const url = new URL(window.location);
+        url.searchParams.set('auth_token', v);
+        window.location.href = url.toString();
+    }
+    </script>
+    """, height=0)
+    return None
+
+def delete_auth_cookie():
+    """删除 auth_token cookie（JS）"""
+    st.components.v1.html(
+        '<script>document.cookie="auth_token=;max-age=0;path=/";</script>',
+        height=0
+    )
 
 def generate_login_token():
     """生成 64 字符随机 token"""
@@ -2478,13 +2506,15 @@ init_memory_db()
 
 # Cookie 自动登录
 if not st.session_state.logged_in:
-    token = cookie_manager.get("auth_token")
+    token = get_auth_cookie()
     if token:
         user_info = verify_login_token(token)
         if user_info:
             st.session_state.logged_in = True
             st.session_state.user_id = user_info["user_id"]
             st.session_state.username = user_info["username"]
+            # 清除 query_params 中的 token
+            st.query_params.clear()
             st.rerun()
 
 if not st.session_state.logged_in:
@@ -2512,7 +2542,7 @@ if not st.session_state.logged_in:
                 if uid:
                     token = generate_login_token()
                     save_login_token(uid, token)
-                    cookie_manager.set("auth_token", token, expires_at=datetime.now() + timedelta(days=30))
+                    set_auth_cookie(token)
                     st.session_state.logged_in = True
                     st.session_state.user_id = uid
                     st.session_state.username = username
@@ -2537,7 +2567,7 @@ if not st.session_state.logged_in:
                     if uid:
                         token = generate_login_token()
                         save_login_token(uid, token)
-                        cookie_manager.set("auth_token", token, expires_at=datetime.now() + timedelta(days=30))
+                        set_auth_cookie(token)
                         st.session_state.logged_in = True
                         st.session_state.user_id = uid
                         st.session_state.username = new_user
@@ -2609,7 +2639,7 @@ if st.session_state.page == "hub":
 
     if st.button("🚪 退出登录", use_container_width=True):
         clear_login_token(st.session_state.get("user_id", 0))
-        cookie_manager.delete("auth_token")
+        delete_auth_cookie()
         st.session_state.logged_in = False
         st.session_state.user_id = None
         st.session_state.page = "hub"
@@ -3617,7 +3647,7 @@ with left_col:
     st.markdown(f"**{st.session_state.get('username','?')}**")
     if st.button("🚪 退出登录", use_container_width=True):
         clear_login_token(st.session_state.get("user_id", 0))
-        cookie_manager.delete("auth_token")
+        delete_auth_cookie()
         st.session_state.logged_in = False
         st.session_state.user_id = None
         st.session_state.page = "hub"
