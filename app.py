@@ -95,8 +95,37 @@ st.components.v1.html("""
 # ==================== 核心功能 ====================
 
 def _extract_content(msg):
-    """从 API 响应中提取内容（兼容 MiMo 思维链模型的 reasoning_content 字段）"""
-    return msg.get("content") or msg.get("reasoning_content") or ""
+    """从 API 响应中提取内容（兼容 MiMo 思维链模型）
+    优先返回 content（最终回答），content 为空时才用 reasoning_content（思考过程）"""
+    c = msg.get("content")
+    if c is not None and c != "":
+        return c
+    return msg.get("reasoning_content") or ""
+
+def _typing_display(placeholder, text, delay=0.02):
+    """打字效果显示文本，LaTeX 公式整体插入不拆散"""
+    import time as _time
+    import re as _re
+
+    # 将文本分割为 LaTeX 块和普通文本块
+    # 匹配 $$...$$ 或 $...$（非贪婪）
+    parts = _re.split(r'(\$\$[\s\S]*?\$\$|\$[^\$]+?\$)', text)
+
+    displayed = ""
+    for part in parts:
+        if not part:
+            continue
+        if part.startswith("$"):
+            # LaTeX 块：整体插入，不逐字
+            displayed += part
+            placeholder.markdown(displayed)
+            _time.sleep(0.1)
+        else:
+            # 普通文本：逐字显示
+            for char in part:
+                displayed += char
+                placeholder.markdown(displayed)
+                _time.sleep(delay)
 
 def read_file(p):
     try:
@@ -1684,22 +1713,14 @@ def render_qa_cards(raw_text, columns=2, typing=False):
         st.caption(f"第{qi+1}题")
 
         if typing:
-            # 逐字打字效果：题干
-            placeholder = st.empty()
-            displayed = ""
-            for char in _escape_md(_collapse_math(_fix_latex(question))):
-                displayed += char
-                placeholder.markdown(displayed)
-                _time.sleep(0.03)
+            # 逐字打字效果：题干（LaTeX 公式整体插入）
+            question_placeholder = st.empty()
+            _typing_display(question_placeholder, _escape_md(_collapse_math(_fix_latex(question))), delay=0.03)
             # 逐字打字效果：选项
             if options:
                 for opt in options[:4]:
-                    placeholder = st.empty()
-                    displayed = ""
-                    for char in _escape_md(_collapse_math(opt)):
-                        displayed += char
-                        placeholder.markdown(displayed)
-                        _time.sleep(0.02)
+                    opt_placeholder = st.empty()
+                    _typing_display(opt_placeholder, _escape_md(_collapse_math(opt)), delay=0.02)
         else:
             st.markdown(_escape_md(_collapse_math(_fix_latex(question))))
             if options:
@@ -1765,12 +1786,13 @@ def generate_review_questions(knowledge_points):
         kb_list = "\n".join(kb_lines)
         context_text = "\n\n".join(contexts) if contexts else ""
 
-        system_prompt = """你是考研数学辅导专家。请严格按以下格式出1道练习题，不要输出任何多余内容。
+        system_prompt = """你是考研数学辅导专家。请直接输出1道练习题，不要输出任何思考过程或内心独白。
 
 ⚠️ 所有数学公式必须用 \\(...\\) 包裹，否则无法显示！
 ⚠️ 题目必须紧扣知识点核心概念，不得偏题。
+⚠️ 直接输出题目内容，不要输出"首先"、"我需要"等思考过程。
 
-输出格式（严格遵守）：
+严格按以下格式输出（不要输出格式说明之外的任何内容）：
 Q: 题目（用文字描述，不要用LaTeX公式）
 A) 选项A
 B) 选项B
@@ -1804,9 +1826,18 @@ EXPLAIN: 解析过程（用文字描述，不要用LaTeX公式）
 
         with urllib.request.urlopen(req, timeout=120) as response:
             result = json.loads(response.read().decode('utf-8'))
+            msg = result['choices'][0]['message']
+            raw = _extract_content(msg)
+            # MiMo 思维链模型可能把题目放在 reasoning_content 中
+            if not raw or "Q:" not in raw:
+                reasoning = msg.get("reasoning_content") or ""
+                # 从 reasoning_content 中提取 Q:...--- 格式
+                q_match = re.search(r'(Q:.*?---)', reasoning, re.DOTALL)
+                if q_match:
+                    raw = q_match.group(1)
             return {
                 "success": True,
-                "questions": _extract_content(result['choices'][0]['message']),
+                "questions": raw,
                 "knowledge_points": [kp['knowledge_id'] for kp in knowledge_points[:3]]
             }
 
@@ -3609,11 +3640,7 @@ with mid_col:
 
         if answer_text.strip():
             answer_placeholder = st.empty()
-            displayed = ""
-            for char in _escape_md(_collapse_math(answer_text.strip())):
-                displayed += char
-                answer_placeholder.markdown(displayed)
-                _time.sleep(0.02)
+            _typing_display(answer_placeholder, _escape_md(_collapse_math(answer_text.strip())), delay=0.02)
             _katex_refresh()
         st.markdown('</div>', unsafe_allow_html=True)
         # 诊断：GLM 原始输出
