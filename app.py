@@ -17,15 +17,12 @@ import urllib.request
 import urllib.error
 import re
 import secrets
-import logging
 import kaoyan_predict
 import extra_streamlit_components as stx
 
-# 抑制 Streamlit CachedWidgetWarning（CookieManager 在 @st.cache_resource 中触发）
-class _SuppressCachedWidget(logging.Filter):
-    def filter(self, record):
-        return "CachedWidgetWarning" not in record.getMessage()
-logging.getLogger("streamlit").addFilter(_SuppressCachedWidget())
+# Monkey-patch Streamlit 的 CachedWidgetWarning 检测（CookieManager 在 @st.cache_resource 中需要）
+import streamlit.elements.lib.policies as _policies
+_policies.check_cache_replay_rules = lambda: None
 
 # ==================== 配置 ====================
 st.set_page_config(page_title="考研学习助手", page_icon="📚", layout="wide", initial_sidebar_state="expanded")
