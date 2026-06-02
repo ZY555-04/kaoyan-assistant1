@@ -17,7 +17,10 @@ import urllib.request
 import urllib.error
 import re
 import secrets
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 import kaoyan_predict
+import extra_streamlit_components as stx
 
 # ==================== 配置 ====================
 st.set_page_config(page_title="考研学习助手", page_icon="📚", layout="wide", initial_sidebar_state="expanded")
@@ -93,7 +96,13 @@ st.components.v1.html("""
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 """, height=0)
 
-# ==================== 持久化登录（query_params 方案） ====================
+# ==================== 持久化登录（CookieManager 方案） ====================
+
+@st.cache_resource
+def get_cookie_manager():
+    return stx.CookieManager()
+
+cookie_manager = get_cookie_manager()
 
 def generate_login_token():
     """生成 64 字符随机 token"""
@@ -2469,16 +2478,15 @@ if "page" not in st.session_state:
 # 确保数据库表存在（登录前就必须建好）
 init_memory_db()
 
-# 自动登录（query_params 方案）
+# 自动登录（CookieManager 方案）
 if not st.session_state.logged_in:
-    token = st.query_params.get("auth_token")
+    token = cookie_manager.get("auth_token")
     if token:
         user_info = verify_login_token(token)
         if user_info:
             st.session_state.logged_in = True
             st.session_state.user_id = user_info["user_id"]
             st.session_state.username = user_info["username"]
-            st.query_params.clear()
             st.rerun()
 
 if not st.session_state.logged_in:
@@ -2506,7 +2514,7 @@ if not st.session_state.logged_in:
                 if uid:
                     token = generate_login_token()
                     save_login_token(uid, token)
-                    st.query_params["auth_token"] = token
+                    cookie_manager.set("auth_token", token, expires_at=datetime.now() + timedelta(days=30))
                     st.session_state.logged_in = True
                     st.session_state.user_id = uid
                     st.session_state.username = username
@@ -2531,7 +2539,7 @@ if not st.session_state.logged_in:
                     if uid:
                         token = generate_login_token()
                         save_login_token(uid, token)
-                        st.query_params["auth_token"] = token
+                        cookie_manager.set("auth_token", token, expires_at=datetime.now() + timedelta(days=30))
                         st.session_state.logged_in = True
                         st.session_state.user_id = uid
                         st.session_state.username = new_user
@@ -2603,7 +2611,7 @@ if st.session_state.page == "hub":
 
     if st.button("🚪 退出登录", use_container_width=True):
         clear_login_token(st.session_state.get("user_id", 0))
-        st.query_params.clear()
+        cookie_manager.delete("auth_token")
         st.session_state.logged_in = False
         st.session_state.user_id = None
         st.session_state.page = "hub"
@@ -3611,7 +3619,7 @@ with left_col:
     st.markdown(f"**{st.session_state.get('username','?')}**")
     if st.button("🚪 退出登录", use_container_width=True):
         clear_login_token(st.session_state.get("user_id", 0))
-        st.query_params.clear()
+        cookie_manager.delete("auth_token")
         st.session_state.logged_in = False
         st.session_state.user_id = None
         st.session_state.page = "hub"
