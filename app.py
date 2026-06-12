@@ -2064,9 +2064,9 @@ def _ai_output_to_pdf(text):
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="data/katex/katex.min.css">
+<script src="data/katex/katex.min.js"></script>
+<script src="data/katex/auto-render.min.js"></script>
 <style>
 body{{font-family:Georgia,"宋体",serif;max-width:800px;margin:0 auto;padding:2rem;line-height:1.8;color:#141413;white-space:pre-wrap}}
 h1{{font-size:1.5rem;border-bottom:1px solid #e8e6dc}}h2{{font-size:1.2rem;margin-top:1.5rem}}h3{{font-size:1rem;color:#5e5d59}}

@@ -19,7 +19,7 @@ except:
     pass
 
 # 创建目录
-for d in ["data/corpus", "data/corpus_demo", "skills", "templates", "test_data", "kaoyan_predict/auth"]:
+for d in ["data/corpus", "data/corpus_demo", "data/katex", "skills", "templates", "test_data", "kaoyan_predict/auth"]:
     (PACK_DIR / d).mkdir(parents=True, exist_ok=True)
 
 print("[1/5] Copying core files...")
