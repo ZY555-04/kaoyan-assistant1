@@ -2052,15 +2052,16 @@ def _ai_output_to_docx_via_pandoc(markdown_text):
     """用 Pandoc 将 Markdown+LaTeX 转为 DOCX（LaTeX 完美渲染）"""
     import tempfile
     import subprocess
+    template = str(Path(__file__).parent / "data" / "reference" / "template.docx")
     with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w", encoding="utf-8") as md:
         md.write(markdown_text)
         md_path = md.name
     docx_path = md_path.replace(".md", ".docx")
     try:
-        subprocess.run(
-            ["pandoc", md_path, "-o", docx_path, "--mathml", "--from", "markdown", "--to", "docx"],
-            check=True, capture_output=True
-        )
+        cmd = ["pandoc", md_path, "-o", docx_path, "--mathml", "--from", "markdown", "--to", "docx"]
+        if os.path.exists(template):
+            cmd += ["--reference-doc", template]
+        subprocess.run(cmd, check=True, capture_output=True)
         with open(docx_path, "rb") as f:
             result = f.read()
         return result
