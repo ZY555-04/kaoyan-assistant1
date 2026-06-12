@@ -2075,7 +2075,7 @@ h1{{font-size:1.5rem;border-bottom:1px solid #e8e6dc}}h2{{font-size:1.2rem;margi
 <body>
 <div id="content"></div>
 <script>
-document.getElementById("content").innerHTML={safe};
+document.getElementById("content").textContent={safe};
 renderMathInElement(document.body,{{delimiters:[{{left:"$$",right:"$$",display:true}},{{left:"$",right:"$",display:false}}],throwOnError:false}});
 </script>
 </body></html>"""
