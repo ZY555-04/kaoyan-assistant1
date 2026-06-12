@@ -3975,7 +3975,10 @@ with tab1:
                                         if m: se = int(m.group(1))
                                         m = re.search(r'\[书写真实性\]\s*(\d+)/(\d+)分', result)
                                         if m: sa = int(m.group(1))
-                                        save_feynman_record(st.session_state.get("user_id"), "problem", quiz['questions'], ans, result, sc, se, sa, total)
+                                        q_raw = quiz['questions']
+                                        qm = re.search(r'Q:\s*(.+)', q_raw)
+                                        display_q = qm.group(1).strip()[:80] if qm else q_raw[:80]
+                                        save_feynman_record(st.session_state.get("user_id"), "problem", display_q, ans, result, sc, se, sa, total)
                                         st.session_state._kb_result = result
                                         st.session_state._kb_quiz = None
                                         st.rerun()
@@ -4063,7 +4066,10 @@ with tab1:
                                         if m: se = int(m.group(1))
                                         m = re.search(r'\[书写真实性\]\s*(\d+)/(\d+)分', result)
                                         if m: sa = int(m.group(1))
-                                        save_feynman_record(st.session_state.get("user_id"), "problem", quiz['questions'], ans, result, sc, se, sa, total)
+                                        q_raw = quiz['questions']
+                                        qm = re.search(r'Q:\s*(.+)', q_raw)
+                                        display_q = qm.group(1).strip()[:80] if qm else q_raw[:80]
+                                        save_feynman_record(st.session_state.get("user_id"), "problem", display_q, ans, result, sc, se, sa, total)
                                         st.session_state._kb_result = result
                                         st.session_state._kb_quiz = None
                                         st.rerun()
