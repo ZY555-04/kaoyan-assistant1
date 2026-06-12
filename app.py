@@ -2060,13 +2060,14 @@ def _ai_output_to_pdf(text):
     if not wk_path:
         raise RuntimeError("未安装 wkhtmltopdf，请访问 https://wkhtmltopdf.org/downloads.html 下载安装")
     safe = json.dumps(text, ensure_ascii=False)
+    katex_dir = Path(__file__).parent / "data" / "katex"
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<link rel="stylesheet" href="data/katex/katex.min.css">
-<script src="data/katex/katex.min.js"></script>
-<script src="data/katex/auto-render.min.js"></script>
+<link rel="stylesheet" href="file:///{katex_dir}/katex.min.css">
+<script src="file:///{katex_dir}/katex.min.js"></script>
+<script src="file:///{katex_dir}/auto-render.min.js"></script>
 <style>
 body{{font-family:Georgia,"宋体",serif;max-width:800px;margin:0 auto;padding:2rem;line-height:1.8;color:#141413;white-space:pre-wrap}}
 h1{{font-size:1.5rem;border-bottom:1px solid #e8e6dc}}h2{{font-size:1.2rem;margin-top:1.5rem}}h3{{font-size:1rem;color:#5e5d59}}
