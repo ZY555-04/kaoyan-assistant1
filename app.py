@@ -2074,6 +2074,9 @@ def _build_english_material_prompt(category, user_requirement, vocab_category=""
 
 请直接输出生成的内容，无需额外说明。"""
     return prompt
+
+
+def _generate_material(prompt):
     """调用 AI 生成资料内容，返回 (思考过程, 最终结果)"""
     data = {
         "model": "mimo-v2.5",
