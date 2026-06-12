@@ -4262,8 +4262,9 @@ with tab4:
             mode_label = "概念" if record["mode"] == "concept" else "解题"
             score = record["total_score"]
             time_str = str(record["created_at"])[:16]
-            with st.expander(f"[{mode_label}] {record['question_text'][:40]}... | {score}分 | {time_str}"):
-                st.markdown(f"**题目**: {record['question_text']}")
+            q_text = record['question_text'] or '(概念自测)'
+            with st.expander(f"[{mode_label}] {q_text[:40]}... | {score}分 | {time_str}"):
+                st.markdown(f"**题目**: {q_text}")
                 st.markdown(f"**你的答案**: {record['user_answer']}")
                 st.markdown("---")
                 st.markdown(record["ai_evaluation"])
