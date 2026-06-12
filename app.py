@@ -2020,7 +2020,60 @@ def _build_material_prompt(selected_topics, user_requirement):
     return prompt
 
 
-def _generate_material(prompt):
+def _build_english_material_prompt(category, user_requirement, vocab_category=""):
+    """根据用户选择的分类和需求，构建发给 AI 的英语资料 prompt"""
+    if category == "单词归类总结":
+        prompt = f"""你是考研英语词汇专家。请根据用户选择的分类方式，生成一份考研英语词汇归类总结。
+
+## 输出要求
+
+1. **结构清晰**：按分类维度组织词汇，每个类别用标题分隔
+2. **信息完整**：每个单词包含词性、中文释义、英文例句、记忆技巧
+3. **实用性强**：提供真题出处和常见搭配
+4. **格式规范**：
+   - 一级标题：分类维度（如"经济类词汇"）
+   - 二级标题：子分类（如"宏观经济学"）
+   - 每个单词：词性 + 释义 + 例句 + 记忆技巧 + 真题出处
+
+## 分类维度
+
+{vocab_category}
+
+## 用户需求
+
+{user_requirement}
+
+请直接输出生成的内容，无需额外说明。"""
+    else:
+        category_prompts = {
+            "语法专题": "你是考研英语语法专家。请生成一份语法专题学习资料，包含：语法规则、例句、真题、易错点、记忆技巧。",
+            "阅读技巧": "你是考研英语阅读专家。请生成一份阅读技巧学习资料，包含：题型特征、解题步骤、真题演示、注意事项。",
+            "写作模板": "你是考研英语写作专家。请生成一份写作模板学习资料，包含：模板结构、高分句型、真题范文、评分标准。",
+            "翻译技巧": "你是考研英语翻译专家。请生成一份翻译技巧学习资料，包含：翻译原则、技巧、真题演示、常见错误。",
+            "完形填空": "你是考研英语完形填空专家。请生成一份完形填空学习资料，包含：逻辑关系、固定搭配、真题演示、解题策略。",
+            "新题型": "你是考研英语新题型专家。请生成一份新题型学习资料，包含：题型特征、解题步骤、真题演示、注意事项。",
+        }
+        system_prompt = category_prompts.get(category, "你是考研英语辅导专家。")
+        prompt = f"""{system_prompt}
+
+## 输出要求
+
+1. **结构清晰**：使用 Markdown 标题层级组织内容
+2. **知识点完整**：每个知识点包含定义、规则、例句、真题
+3. **例句真实**：使用考研真题例句或符合考研难度的例句
+4. **实用性强**：提供解题技巧和常见错误提示
+5. **格式规范**：
+   - 一级标题：章节名称
+   - 二级标题：知识点名称
+   - 三级标题：子知识点
+   - 每个知识点包含：定义 → 规则 → 例句 → 真题 → 技巧
+
+## 用户需求
+
+{user_requirement}
+
+请直接输出生成的内容，无需额外说明。"""
+    return prompt
     """调用 AI 生成资料内容，返回 (思考过程, 最终结果)"""
     data = {
         "model": "mimo-v2.5",
@@ -3046,7 +3099,74 @@ if st.session_state.page == "material":
 
     # ── 英语资料 ──
     with tab_english:
-        st.info("🚧 英语资料模块即将上线，敬请期待~")
+        eng_categories = [
+            "语法专题", "阅读技巧", "写作模板", "翻译技巧",
+            "完形填空", "新题型", "单词归类总结"
+        ]
+        selected_eng_category = st.selectbox(
+            "选择知识点分类",
+            eng_categories,
+            key="eng_category"
+        )
+
+        vocab_category = ""
+        if selected_eng_category == "单词归类总结":
+            vocab_types = ["按主题分类", "按词性分类", "按难度分类", "按真题频率分类"]
+            vocab_category = st.selectbox(
+                "选择分类方式",
+                vocab_types,
+                key="vocab_category"
+            )
+
+        eng_requirement = st.text_area(
+            "描述你想要的资料",
+            height=100,
+            placeholder="例如：帮我整理定语从句的笔记，要有例句和真题",
+            key="eng_requirement"
+        )
+
+        eng_col1, eng_col2 = st.columns([1, 3])
+        with eng_col1:
+            eng_generate_btn = st.button("🚀 生成资料", type="primary", use_container_width=True, key="eng_gen")
+        with eng_col2:
+            if not eng_requirement.strip():
+                st.caption("💡 在上方输入框中描述你想要的资料类型，然后点击生成")
+
+        if eng_generate_btn:
+            if not eng_requirement.strip():
+                st.warning("请先输入你对资料的需求描述")
+            elif not API_KEY:
+                st.error("未配置 AI API Key，无法生成")
+            else:
+                with st.spinner("AI 正在生成资料，请稍候..."):
+                    prompt = _build_english_material_prompt(
+                        selected_eng_category, eng_requirement, vocab_category
+                    )
+                    try:
+                        reasoning, result_text = _generate_material(prompt)
+                        docx_bytes = _ai_output_to_docx_via_pandoc(result_text)
+
+                        if reasoning:
+                            reasoning_lines = [l for l in reasoning.split("\n") if l.strip()]
+                            brief = reasoning_lines[:3] if len(reasoning_lines) > 3 else reasoning_lines
+                            with st.expander(f"💭 AI 思考过程（共 {len(reasoning)} 字）"):
+                                st.caption("\n".join(brief))
+                                if len(reasoning_lines) > 3:
+                                    st.caption(f"...（共 {len(reasoning_lines)} 行思考内容）")
+
+                        file_name = f"考研英语_{selected_eng_category}.docx"
+
+                        st.success(f"✅ 生成完成！共 {len(result_text)} 字")
+                        st.download_button(
+                            label="📥 下载 docx",
+                            data=docx_bytes,
+                            file_name=file_name,
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            key="eng_dl",
+                            type="primary",
+                        )
+                    except Exception as e:
+                        st.error(f"生成失败: {e}")
 
     st.stop()
 
