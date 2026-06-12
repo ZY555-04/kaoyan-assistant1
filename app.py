@@ -2051,12 +2051,10 @@ def _generate_material(prompt):
 def _latex_to_omml(latex_str):
     """将单个 LaTeX 公式字符串转换为 OMML XML 元素（用于 docx 嵌入）"""
     from lxml import etree
-    from sympy.parsing.latex import parse_latex
-    from sympy.printing.mathml import mathml
+    import latex2mathml.converter
 
     try:
-        expr = parse_latex(latex_str)
-        mml_str = mathml(expr)
+        mml_str = latex2mathml.converter.convert(latex_str)
         mml = etree.fromstring(mml_str.encode("utf-8"))
     except Exception:
         return None
