@@ -3977,7 +3977,7 @@ with tab1:
                                         if m: sa = int(m.group(1))
                                         q_raw = quiz['questions']
                                         qm = re.search(r'Q:\s*(.+)', q_raw)
-                                        display_q = qm.group(1).strip()[:80] if qm else q_raw[:80]
+                                        display_q = qm.group(1).strip()[:300] if qm else q_raw[:300]
                                         save_feynman_record(st.session_state.get("user_id"), "problem", display_q, ans, result, sc, se, sa, total)
                                         st.session_state._kb_result = result
                                         st.session_state._kb_quiz = None
@@ -3996,7 +3996,7 @@ with tab1:
                             st.session_state.pop("_kb_concept_qid", None)
                             st.rerun()
                     elif not st.session_state.get("_kb_concept_result"):
-                        concept_quiz_text = f"请用你自己的理解描述一下你对「{_clean_knowledge_name(kid)}」的想法与见解"
+                        concept_quiz_text = f"概念自测：「{_clean_knowledge_name(kid)}」"
                         st.info(f"📝 {concept_quiz_text}")
                         ans = st.text_area("你的回答", key=f"kb_s_ans_{kid}", height=120)
                         if st.button("📝 提交自测", key=f"kb_s_cp_sub_{kid}", use_container_width=True):
@@ -4068,7 +4068,7 @@ with tab1:
                                         if m: sa = int(m.group(1))
                                         q_raw = quiz['questions']
                                         qm = re.search(r'Q:\s*(.+)', q_raw)
-                                        display_q = qm.group(1).strip()[:80] if qm else q_raw[:80]
+                                        display_q = qm.group(1).strip()[:300] if qm else q_raw[:300]
                                         save_feynman_record(st.session_state.get("user_id"), "problem", display_q, ans, result, sc, se, sa, total)
                                         st.session_state._kb_result = result
                                         st.session_state._kb_quiz = None
@@ -4087,7 +4087,7 @@ with tab1:
                             st.session_state.pop("_kb_concept_qid", None)
                             st.rerun()
                     elif not st.session_state.get("_kb_concept_result"):
-                        concept_quiz_text = f"请用你自己的理解描述一下你对「{_clean_knowledge_name(kid)}」的想法与见解"
+                        concept_quiz_text = f"概念自测：「{_clean_knowledge_name(kid)}」"
                         st.info(f"📝 {concept_quiz_text}")
                         ans = st.text_area("你的回答", key=f"kb_d_cp_ans_{kid}", height=120)
                         if st.button("📝 提交自测", key=f"kb_d_cp_sub_{kid}", use_container_width=True):
