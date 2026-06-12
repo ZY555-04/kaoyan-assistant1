@@ -19,10 +19,13 @@ import urllib.request
 import urllib.error
 import re
 import secrets
+import io
 import kaoyan_predict
 from recommend import generate_recommendation
 import extra_streamlit_components as stx
 from dotenv import load_dotenv
+from docx import Document
+from docx.shared import Pt
 
 # Monkey-patch Streamlit 的 CachedWidgetWarning 检测（CookieManager 在 @st.cache_resource 中需要）
 import streamlit.elements.lib.policies as _policies
@@ -33,6 +36,7 @@ _cc.check_cache_replay_rules = lambda: None
 # ==================== 配置 ====================
 st.set_page_config(page_title="考研学习助手", page_icon="📚", layout="wide", initial_sidebar_state="expanded")
 
+load_dotenv()
 # API配置
 API_KEY = os.environ.get("AI_API_KEY", "")
 API_BASE = os.environ.get("AI_API_BASE", "https://api.xiaomimimo.com/v1")
@@ -1941,12 +1945,22 @@ EXPLAIN: 在知识库中查看完整内容
 # ==================== 学习资料 - 辅助函数 ====================
 
 def _read_reference_docx_structure():
-    """返回参考文档的格式结构说明（静态模板，无需 python-docx）"""
-    return """### 参考文档结构：
-# 一级标题：章节名
-## 二级标题：节标题
-### 三级标题：题型/知识点编号
-- 每个题目包含：题目描述 → 分析/提示 → 解答 → 方法总结"""
+    """读取 data/reference/ 下的参考 docx 文档，提取段落层级结构作为格式参考"""
+    structure_desc = []
+    for ref_file in sorted(REFERENCE_DIR.glob("*.docx")):
+        try:
+            doc = Document(ref_file)
+            lines = []
+            for p in doc.paragraphs[:60]:  # 只取前60段看清结构
+                style = p.style.name if p.style else "Normal"
+                text = p.text.strip()
+                if text:
+                    lines.append(f"[{style}] {text[:120]}")
+            if lines:
+                structure_desc.append(f"### 《{ref_file.stem}》结构示例：\n" + "\n".join(lines))
+        except Exception:
+            pass
+    return "\n\n".join(structure_desc) if structure_desc else "（暂无参考文档）"
 
 
 def _build_material_prompt(selected_topics, user_requirement):
@@ -2037,58 +2051,325 @@ def _generate_material(prompt):
         raise RuntimeError(f"AI 调用失败: {e}")
 
 
-def _find_wkhtmltopdf():
-    """自动查找 wkhtmltopdf 可执行文件"""
-    import shutil
-    path = shutil.which("wkhtmltopdf")
-    if path:
-        return path
-    win_paths = [
-        r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe",
-        r"C:\Program Files (x86)\wkhtmltopdf\bin\wkhtmltopdf.exe",
-    ]
-    for p in win_paths:
-        if os.path.exists(p):
-            return p
-    return None
+def _latex_to_omml(latex_str):
+    """将单个 LaTeX 公式字符串转换为 OMML XML 元素（用于 docx 嵌入）"""
+    from lxml import etree
+    from sympy.parsing.latex import parse_latex
+    from sympy.printing.mathml import mathml
 
-def _ai_output_to_pdf(text):
-    """将 AI 生成的 Markdown 转为带 KaTeX 渲染的 PDF"""
-    import pdfkit
-    import tempfile
-    wk_path = _find_wkhtmltopdf()
-    if not wk_path:
-        raise RuntimeError("未安装 wkhtmltopdf，请访问 https://wkhtmltopdf.org/downloads.html 下载安装")
-    safe = json.dumps(text, ensure_ascii=False)
-    katex_dir = Path(__file__).parent / "data" / "katex"
-    html = f"""<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<link rel="stylesheet" href="file:///{katex_dir}/katex.min.css">
-<script src="file:///{katex_dir}/katex.min.js"></script>
-<script src="file:///{katex_dir}/auto-render.min.js"></script>
-<style>
-body{{font-family:Georgia,"宋体",serif;max-width:800px;margin:0 auto;padding:2rem;line-height:1.8;color:#141413;white-space:pre-wrap}}
-h1{{font-size:1.5rem;border-bottom:1px solid #e8e6dc}}h2{{font-size:1.2rem;margin-top:1.5rem}}h3{{font-size:1rem;color:#5e5d59}}
-</style>
-</head>
-<body>
-<div id="content"></div>
-<script>
-document.getElementById("content").textContent={safe};
-renderMathInElement(document.body,{{delimiters:[{{left:"$$",right:"$$",display:true}},{{left:"$",right:"$",display:false}}],throwOnError:false}});
-</script>
-</body></html>"""
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        config = pdfkit.configuration(wkhtmltopdf=wk_path)
-        pdfkit.from_string(html, tmp.name, configuration=config, options={
-            "enable-javascript": "",
-            "javascript-delay": "2000",
-            "encoding": "UTF-8",
-            "no-stop-slow-scripts": "",
-        })
-        return Path(tmp.name).read_bytes()
+    try:
+        expr = parse_latex(latex_str)
+        mml_str = mathml(expr)
+        mml = etree.fromstring(mml_str.encode("utf-8"))
+    except Exception:
+        return None
+
+    MATH_NS = "http://schemas.openxmlformats.org/officeDocument/2006/math"
+    M = "{%s}" % MATH_NS
+
+    def _m(tag):
+        return etree.QName(MATH_NS, tag)
+
+    def _r(text):
+        """Create m:r element with m:t text"""
+        r = etree.Element(_m("r"))
+        t = etree.SubElement(r, _m("t"))
+        t.text = str(text)
+        t.set("xml:space", "preserve")
+        return r
+
+    def _convert(elem):
+        """Recursively convert MathML element to OMML"""
+        tag = etree.QName(elem.tag).localname
+
+        if tag == "ci":
+            return _r(elem.text or "")
+        elif tag == "cn":
+            return _r(elem.text or "")
+
+        elif tag == "apply":
+            children = list(elem)
+            if not children:
+                return None
+            op_elem = children[0]
+            op_tag = etree.QName(op_elem.tag).localname
+            args = children[1:]
+
+            if op_tag == "divide":
+                # m:f
+                f = etree.Element(_m("f"))
+                if not args:
+                    return None
+                num_elem = args[0]
+                num = etree.SubElement(f, _m("num"))
+                num_conv = _convert(num_elem)
+                if num_conv is not None:
+                    num.append(num_conv)
+                den_elem = args[1] if len(args) > 1 else None
+                if den_elem is not None:
+                    den = etree.SubElement(f, _m("den"))
+                    den_conv = _convert(den_elem)
+                    if den_conv is not None:
+                        den.append(den_conv)
+                return f
+
+            elif op_tag == "power":
+                # m:sSup
+                sSup = etree.Element(_m("sSup"))
+                base_elem = etree.SubElement(sSup, _m("e"))
+                base_conv = _convert(args[0]) if args else None
+                if base_conv is not None:
+                    base_elem.append(base_conv)
+                sup_elem = etree.SubElement(sSup, _m("sup"))
+                sup_conv = _convert(args[1]) if len(args) > 1 else None
+                if sup_conv is not None:
+                    sup_elem.append(sup_conv)
+                return sSup
+
+            elif op_tag == "root":
+                # m:rad (degree is first arg if present, otherwise default sqrt)
+                rad = etree.Element(_m("rad"))
+                rad_elem = etree.SubElement(rad, _m("e"))
+                # Check if first arg is a <cn>2</cn> (square root)
+                if len(args) == 2:
+                    deg = etree.SubElement(rad, _m("deg"))
+                    deg_conv = _convert(args[0])
+                    if deg_conv is not None:
+                        deg.append(deg_conv)
+                    content_conv = _convert(args[1])
+                    if content_conv is not None:
+                        rad_elem.append(content_conv)
+                else:
+                    content_conv = _convert(args[0]) if args else None
+                    if content_conv is not None:
+                        rad_elem.append(content_conv)
+                return rad
+
+            elif op_tag == "minus" and len(args) == 1:
+                # Unary minus
+                r = etree.Element(_m("r"))
+                t = etree.SubElement(r, _m("t"))
+                t.text = "-"
+                t.set("xml:space", "preserve")
+                inner = _convert(args[0])
+                if inner is not None:
+                    # Return a simple concatenation for unary minus
+                    d = etree.Element(_m("d"))
+                    d.append(r)
+                    d.append(inner)
+                    return d
+                return r
+
+            elif op_tag in ("plus", "minus", "times"):
+                # Binary operators
+                op_map = {"plus": "+", "minus": "-", "times": "×"}
+                op_char = op_map.get(op_tag, op_tag)
+                d = etree.Element(_m("d"))
+                if not args:
+                    return None
+                for i, a in enumerate(args):
+                    if i > 0:
+                        op_r = _r(op_char)
+                        d.append(op_r)
+                    conv = _convert(a)
+                    if conv is not None:
+                        d.append(conv)
+                return d
+
+            elif op_tag == "int":
+                # m:nary with ∫
+                nary = etree.Element(_m("nary"))
+                chr_elem = etree.SubElement(nary, _m("chr"))
+                chr_elem.set(_m("val"), "∫")
+                # Find bvar, lowlimit, uplimit, and the integrand
+                integrand = None
+                for a in args:
+                    at = etree.QName(a.tag).localname
+                    if at == "bvar":
+                        continue  # bvar is just declaration
+                    elif at == "lowlimit":
+                        sub_e = etree.SubElement(nary, _m("sub"))
+                        sub_c = _convert(a[0]) if len(a) else None
+                        if sub_c is not None:
+                            sub_e.append(sub_c)
+                    elif at == "uplimit":
+                        sup_e = etree.SubElement(nary, _m("sup"))
+                        sup_c = _convert(a[0]) if len(a) else None
+                        if sup_c is not None:
+                            sup_e.append(sup_c)
+                    else:
+                        integrand = a
+                if integrand is not None:
+                    e = etree.SubElement(nary, _m("e"))
+                    ec = _convert(integrand)
+                    if ec is not None:
+                        e.append(ec)
+                return nary
+
+            elif op_tag == "sum":
+                nary = etree.Element(_m("nary"))
+                chr_elem = etree.SubElement(nary, _m("chr"))
+                chr_elem.set(_m("val"), "∑")
+                for a in args:
+                    at = etree.QName(a.tag).localname
+                    if at == "bvar":
+                        continue
+                    elif at == "lowlimit":
+                        sub_e = etree.SubElement(nary, _m("sub"))
+                        sub_c = _convert(a[0]) if len(a) else None
+                        if sub_c is not None:
+                            sub_e.append(sub_c)
+                    elif at == "uplimit":
+                        sup_e = etree.SubElement(nary, _m("sup"))
+                        sup_c = _convert(a[0]) if len(a) else None
+                        if sup_c is not None:
+                            sup_e.append(sup_c)
+                    else:
+                        e = etree.SubElement(nary, _m("e"))
+                        ec = _convert(a)
+                        if ec is not None:
+                            e.append(ec)
+                return nary
+
+            elif op_tag in ("sin", "cos", "tan", "ln", "log", "exp", "lim", "cot", "sec", "csc"):
+                func = etree.Element(_m("func"))
+                fName = etree.SubElement(func, _m("fName"))
+                fn_r = _r(op_tag)
+                fName.append(fn_r)
+                if args:
+                    fe = etree.SubElement(func, _m("e"))
+                    fc = _convert(args[0])
+                    if fc is not None:
+                        fe.append(fc)
+                return func
+
+            elif op_tag == "eq":
+                # Equality: a = b
+                d = etree.Element(_m("d"))
+                if not args:
+                    return None
+                for i, a in enumerate(args):
+                    if i > 0:
+                        d.append(_r("="))
+                    conv = _convert(a)
+                    if conv is not None:
+                        d.append(conv)
+                return d
+
+            elif op_tag == "f":  # function application like f(x)
+                if args:
+                    return _convert(args[0])
+                return None
+
+            else:
+                # Fallback: convert all children and join
+                d = etree.Element(_m("d"))
+                for a in args:
+                    conv = _convert(a)
+                    if conv is not None:
+                        d.append(conv)
+                return d
+
+        else:
+            return None
+
+    try:
+        omml = _convert(mml)
+    except Exception:
+        return None
+
+    if omml is None:
+        return None
+    return omml
+
+
+def _ai_output_to_docx_bytes(ai_text):
+    """将 AI 生成的 Markdown 转 docx，LaTeX 公式转 OMML 让 Word 原生渲染"""
+    from lxml import etree
+
+    text_clean = _fix_latex(ai_text)
+
+    doc = Document()
+    style = doc.styles["Normal"]
+    font = style.font
+    font.name = "宋体"
+    font.size = Pt(12)
+
+    MATH_NS = "http://schemas.openxmlformats.org/officeDocument/2006/math"
+
+    # 先合并 $$...$$ 多行块，再按行处理
+    lines = []
+    in_math = False
+    math_buf = []
+    for line in text_clean.split("\n"):
+        s = line.strip()
+        if s.startswith("$$") and not in_math:
+            in_math = True
+            math_buf = [s]
+        elif in_math:
+            math_buf.append(s)
+            if s.endswith("$$"):
+                lines.append(("math_block", "\n".join(math_buf)))
+                in_math = False
+                math_buf = []
+        else:
+            lines.append(("text", s))
+    if in_math and math_buf:
+        lines.append(("math_block", "\n".join(math_buf)))
+
+    for kind, text in lines:
+        if kind == "math_block":
+            # 显示公式块，居中
+            latex_inner = text.strip()
+            if latex_inner.startswith("$$"):
+                latex_inner = latex_inner[2:]
+            if latex_inner.endswith("$$"):
+                latex_inner = latex_inner[:-2]
+            latex_inner = latex_inner.strip()
+
+            p = doc.add_paragraph()
+            p.alignment = 1  # 居中
+            omml = _latex_to_omml(latex_inner)
+            if omml is not None:
+                run = p.add_run(" ")
+                run._element.append(omml)
+            else:
+                run = p.add_run(text)
+                run.font.size = Pt(11)
+
+        elif not text:
+            continue
+        elif text.startswith("### "):
+            doc.add_paragraph(text[4:], style="Heading 3")
+        elif text.startswith("## "):
+            doc.add_paragraph(text[3:], style="Heading 2")
+        elif text.startswith("# "):
+            doc.add_paragraph(text[2:], style="Heading 1")
+        else:
+            # 普通段落，处理内联 $...$ 公式
+            parts = re.split(r"(\$[^$]+\$)", text)
+            if len(parts) == 1:
+                doc.add_paragraph(text)
+            else:
+                p = doc.add_paragraph()
+                for part in parts:
+                    if part.startswith("$") and part.endswith("$"):
+                        inline_latex = part[1:-1].strip()
+                        omml = _latex_to_omml(inline_latex)
+                        if omml is not None:
+                            run = p.add_run(" ")
+                            run._element.append(omml)
+                        else:
+                            run = p.add_run(part)
+                            run.font.size = Pt(11)
+                    else:
+                        p.add_run(part)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf.getvalue()
+
 
 
 # ==================== 多Agent管线 ====================
@@ -3030,7 +3311,7 @@ if st.session_state.page == "material":
                     prompt = _build_material_prompt(selected_topics, user_requirement)
                     try:
                         reasoning, result_text = _generate_material(prompt)
-                        pdf_bytes = _ai_output_to_pdf(result_text)
+                        docx_bytes = _ai_output_to_docx_bytes(result_text)
 
                         # 简短展示思考过程
                         if reasoning:
@@ -3044,17 +3325,17 @@ if st.session_state.page == "material":
                         # 动态文件名：优先用选中的知识点，否则从用户需求中提取
                         if selected_topics:
                             base = selected_topics[0][:20] if len(selected_topics) == 1 else f"{selected_topics[0][:12]}等{len(selected_topics)}个知识点"
-                            file_name = f"{base}资料.pdf"
+                            file_name = f"{base}资料.docx"
                         else:
                             kw = user_requirement.replace("帮我", "").replace("生成", "").replace("一份", "").strip()[:20]
-                            file_name = f"{kw}资料.pdf" if kw else "考研数学资料.pdf"
+                            file_name = f"{kw}资料.docx" if kw else "考研数学资料.docx"
 
                         st.success(f"✅ 生成完成！共 {len(result_text)} 字")
                         st.download_button(
-                            label="📥 下载 PDF",
-                            data=pdf_bytes,
+                            label="📥 下载 docx",
+                            data=docx_bytes,
                             file_name=file_name,
-                            mime="text/html",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                             key="mat_dl",
                             type="primary",
                         )
