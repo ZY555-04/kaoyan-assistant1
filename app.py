@@ -2037,10 +2037,28 @@ def _generate_material(prompt):
         raise RuntimeError(f"AI 调用失败: {e}")
 
 
+def _find_wkhtmltopdf():
+    """自动查找 wkhtmltopdf 可执行文件"""
+    import shutil
+    path = shutil.which("wkhtmltopdf")
+    if path:
+        return path
+    win_paths = [
+        r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe",
+        r"C:\Program Files (x86)\wkhtmltopdf\bin\wkhtmltopdf.exe",
+    ]
+    for p in win_paths:
+        if os.path.exists(p):
+            return p
+    return None
+
 def _ai_output_to_pdf(text):
     """将 AI 生成的 Markdown 转为带 KaTeX 渲染的 PDF"""
     import pdfkit
     import tempfile
+    wk_path = _find_wkhtmltopdf()
+    if not wk_path:
+        raise RuntimeError("未安装 wkhtmltopdf，请访问 https://wkhtmltopdf.org/downloads.html 下载安装")
     safe = json.dumps(text, ensure_ascii=False)
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -2062,7 +2080,7 @@ renderMathInElement(document.body,{{delimiters:[{{left:"$$",right:"$$",display:t
 </script>
 </body></html>"""
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        pdfkit.from_string(html, tmp.name, options={
+        pdfkit.from_string(html, tmp.name, configuration=wk_path, options={
             "enable-javascript": "",
             "javascript-delay": "2000",
             "encoding": "UTF-8",
