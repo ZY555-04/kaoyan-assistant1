@@ -5,7 +5,7 @@
 import streamlit as st
 import os
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 import json
 import sqlite3
 import math
@@ -33,7 +33,6 @@ _cc.check_cache_replay_rules = lambda: None
 # ==================== 配置 ====================
 st.set_page_config(page_title="考研学习助手", page_icon="📚", layout="wide", initial_sidebar_state="expanded")
 
-load_dotenv()
 # API配置
 API_KEY = os.environ.get("AI_API_KEY", "")
 API_BASE = os.environ.get("AI_API_BASE", "https://api.xiaomimimo.com/v1")
