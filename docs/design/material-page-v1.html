@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学习资料生成 — 考研学习助手</title>
+<style>
+:root {
+  --bg-base:#f1f5f9; --bg-surface:#fff; --bg-elevated:#f8fafc;
+  --primary:#4f46e5; --primary-hover:#4338ca; --primary-soft:#eef2ff;
+  --text-main:#1e293b; --text-sub:#64748b; --text-muted:#94a3b8;
+  --border:#e2e8f0; --success:#10b981; --success-soft:#ecfdf5;
+  --warning:#f59e0b; --warning-soft:#fffbeb;
+  --danger:#ef4444; --danger-soft:#fef2f2;
+  --radius-sm:8px; --radius-md:12px; --radius-lg:18px;
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:0 1px 3px rgba(0,0,0,0.04),0 4px 12px rgba(0,0,0,0.05);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg-base);color:var(--text-main);line-height:1.6;-webkit-font-smoothing:antialiased;}
+.container{max-width:1100px;margin:0 auto;padding:24px 32px;}
+
+.page-header{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 28px;margin-bottom:20px;box-shadow:var(--shadow-sm);}
+.page-header h1{font-size:1.5rem;font-weight:800;margin-bottom:4px;}
+.page-header .sub{font-size:.85rem;color:var(--text-sub);}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;color:var(--primary);font-weight:600;margin-bottom:8px;cursor:pointer;}
+.back-link:hover{text-decoration:underline;}
+
+/* Tabs */
+.tab-nav{display:flex;gap:6px;background:var(--border);padding:4px;border-radius:10px;width:fit-content;margin-bottom:18px;}
+.tab-btn{padding:8px 18px;border-radius:7px;border:none;background:transparent;font-size:.85rem;font-weight:500;color:var(--text-sub);cursor:pointer;transition:all .2s;font-family:inherit;}
+.tab-btn.active{background:white;color:var(--primary);box-shadow:var(--shadow-sm);font-weight:600;}
+.tab-pane{display:none;animation:fadeSlide .3s ease;}
+.tab-pane.active{display:block;}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;box-shadow:var(--shadow-sm);}
+.card h3{font-size:.95rem;font-weight:700;margin-bottom:14px;}
+
+.form-label{font-size:.78rem;font-weight:700;color:var(--text-main);margin-bottom:6px;display:block;}
+textarea{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.86rem;font-family:inherit;color:var(--text-main);background:var(--bg-elevated);resize:vertical;}
+textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(79,70,229,0.10);}
+select{width:100%;padding:9px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.86rem;font-family:inherit;color:var(--text-main);background:var(--bg-elevated);cursor:pointer;}
+select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(79,70,229,0.10);}
+input[type="text"]{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.86rem;font-family:inherit;color:var(--text-main);background:var(--bg-elevated);}
+input[type="text"]:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(79,70,229,0.10);}
+
+.btn-primary{padding:10px 22px;border:none;background:var(--primary);color:white;border-radius:24px;font-weight:600;cursor:pointer;font-size:.88rem;font-family:inherit;transition:all .2s;white-space:nowrap;}
+.btn-primary:hover{background:var(--primary-hover);transform:scale(1.02);}
+.btn-full{width:100%;}
+
+/* Multi-select tags */
+.tag-select{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
+.tag-option{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--bg-surface);font-size:.82rem;cursor:pointer;transition:all .2s;user-select:none;color:var(--text-sub);}
+.tag-option:hover{border-color:var(--primary);color:var(--primary);}
+.tag-option.selected{background:var(--primary-soft);color:var(--primary);border-color:var(--primary);font-weight:600;}
+
+/* Scrollable multi-select with search */
+.multi-select-container{border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;margin:8px 0;}
+.ms-search{padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg-surface);}
+.ms-search input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:20px;font-size:.84rem;font-family:inherit;color:var(--text-main);background:var(--bg-elevated);}
+.ms-search input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(79,70,229,0.10);}
+.ms-list{max-height:240px;overflow-y:auto;background:var(--bg-surface);}
+.ms-item{display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;font-size:.84rem;color:var(--text-main);transition:background .15s;border-bottom:1px solid var(--border-light);user-select:none;}
+.ms-item:last-child{border-bottom:none;}
+.ms-item:hover{background:var(--bg-elevated);}
+.ms-item.selected{background:var(--primary-soft);color:var(--primary);font-weight:600;}
+.ms-check{width:18px;height:18px;border-radius:4px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;font-size:.7rem;color:transparent;}
+.ms-item.selected .ms-check{background:var(--primary);border-color:var(--primary);color:white;}
+.ms-footer{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--bg-elevated);border-top:1px solid var(--border);font-size:.78rem;color:var(--text-sub);}
+.ms-footer .ms-count{font-weight:600;color:var(--primary);}
+.ms-clear{font-size:.75rem;color:var(--text-muted);cursor:pointer;border:none;background:none;font-family:inherit;}
+.ms-clear:hover{color:var(--danger);}
+.ms-empty{padding:20px;text-align:center;font-size:.82rem;color:var(--text-muted);}
+
+/* Generate row */
+.gen-row{display:flex;align-items:center;gap:16px;margin-top:12px;}
+.gen-hint{font-size:.78rem;color:var(--text-muted);}
+
+/* Result area */
+.result-area{display:none;margin-top:16px;}
+.result-area.show{display:block;}
+
+/* Expander (thinking process) */
+.expander{border:1px solid var(--border);border-radius:var(--radius-sm);margin:12px 0;overflow:hidden;}
+.expander-header{padding:10px 14px;background:var(--bg-elevated);cursor:pointer;font-size:.82rem;font-weight:600;color:var(--text-sub);display:flex;justify-content:space-between;user-select:none;}
+.expander-header:hover{background:var(--border);}
+.expander-body{display:none;padding:12px 16px;font-size:.78rem;line-height:1.6;color:var(--text-muted);background:var(--bg-surface);}
+.expander-body.show{display:block;}
+
+/* Download button */
+.dl-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;background:var(--success);color:white;border:none;border-radius:24px;font-weight:600;cursor:pointer;font-size:.88rem;font-family:inherit;transition:all .2s;margin-top:10px;}
+.dl-btn:hover{background:#059669;transform:scale(1.02);}
+
+/* Spinner */
+.spinner{display:none;text-align:center;padding:20px;font-size:.85rem;color:var(--primary);}
+.spinner.show{display:block;}
+.spin-dot{display:inline-block;width:8px;height:8px;background:var(--primary);border-radius:50%;animation:pulse 1.2s infinite;margin-right:8px;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Tips */
+.success-tip{padding:10px 14px;background:var(--success-soft);border:1px solid #a7f3d0;border-radius:var(--radius-sm);font-size:.84rem;color:var(--success);margin:8px 0;}
+.warning-tip{padding:10px 14px;background:var(--warning-soft);border:1px solid #fde68a;border-radius:var(--radius-sm);font-size:.82rem;color:#92400e;margin:8px 0;}
+.info-tip{padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius-sm);font-size:.82rem;color:var(--primary);margin:8px 0;}
+
+@media(max-width:768px){.container{padding:16px;}.gen-row{flex-direction:column;align-items:flex-start;}}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <header class="page-header">
+    <a class="back-link" onclick="alert('返回首页')">← 返回首页</a>
+    <h1>学习资料生成</h1>
+    <p class="sub">AI 生成习题册 · 知识点整理 · DOCX 文档导出 · Pandoc 渲染</p>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('math',this)">数学资料</button>
+    <button class="tab-btn" onclick="switchTab('english',this)">英语资料</button>
+  </div>
+
+  <!-- ═══════════ TAB 1: 数学资料 ═══════════ -->
+  <div id="tab-math" class="tab-pane active">
+    <div class="card">
+      <!-- Knowledge point selection: scrollable + searchable multi-select -->
+      <span class="form-label">选择知识点范围（可多选，留空则使用全部 110 个知识点）</span>
+      <div class="multi-select-container">
+        <div class="ms-search">
+          <input type="text" placeholder="搜索知识点..." oninput="filterMathTopics(this.value)">
+        </div>
+        <div class="ms-list" id="math-topic-list">
+          <!-- populated by JS -->
+        </div>
+        <div class="ms-footer">
+          <span>已选 <span class="ms-count" id="math-topic-count">0</span> / 110 个</span>
+          <button class="ms-clear" onclick="clearMathTopics()">清除全部</button>
+        </div>
+      </div>
+
+      <!-- Requirement -->
+      <span class="form-label" style="margin-top:16px;">描述你想要的资料</span>
+      <textarea id="math-req" style="height:100px;" placeholder="帮我生成一份积分典型题习题集，要基础题和难题都有"></textarea>
+
+      <!-- Generate row -->
+      <div class="gen-row">
+        <button class="btn-primary" onclick="generateMaterial('math')">生成资料</button>
+        <span class="gen-hint" id="math-hint">在上方输入框中描述你想要的资料类型，然后点击生成</span>
+      </div>
+      <div class="warning-tip hidden" id="math-warning" style="margin-top:10px;">请先输入你对资料的需求描述</div>
+
+      <!-- Spinner -->
+      <div class="spinner" id="math-spinner"><span class="spin-dot"></span>AI 正在生成资料，请稍候...</div>
+
+      <!-- Result -->
+      <div class="result-area" id="math-result">
+        <div class="expander">
+          <div class="expander-header" onclick="this.nextElementSibling.classList.toggle('show');this.querySelector('span').innerText=this.nextElementSibling.classList.contains('show')?'▴':'▾';">
+            AI 思考过程（共 1,247 字） <span>▾</span>
+          </div>
+          <div class="expander-body">
+            用户需要一份积分典型题习题集，覆盖基础到难题。我计划按以下结构组织...<br>
+            1. 基础知识回顾：不定积分、定积分、反常积分<br>
+            2. 题型分类：直接积分法、换元法、分部积分法...<br>
+            <span style="color:var(--text-muted);">...（共 18 行思考内容）</span>
+          </div>
+        </div>
+        <div class="success-tip" id="math-success">生成完成！共 3,842 字</div>
+        <button class="dl-btn" onclick="alert('模拟下载：定积分等2个知识点资料.docx')">下载 DOCX</button>
+        <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;">文件名：定积分等2个知识点资料.docx · Pandoc 渲染 · 含 KaTeX 数学公式</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ TAB 2: 英语资料 ═══════════ -->
+  <div id="tab-english" class="tab-pane">
+    <div class="card">
+      <!-- Category select -->
+      <span class="form-label">选择知识点分类</span>
+      <select id="eng-category" onchange="toggleVocabType(this.value)">
+        <option>语法专题</option>
+        <option>阅读技巧</option>
+        <option>写作模板</option>
+        <option>翻译技巧</option>
+        <option>完形填空</option>
+        <option>新题型</option>
+        <option>单词归类总结</option>
+      </select>
+
+      <!-- Vocab sub-category (only for 单词归类总结) -->
+      <div id="vocab-type-group" style="display:none;margin-top:14px;">
+        <span class="form-label">选择分类方式</span>
+        <select id="vocab-type">
+          <option>按主题分类</option>
+          <option>按词性分类</option>
+          <option>按难度分类</option>
+          <option>按真题频率分类</option>
+        </select>
+      </div>
+
+      <!-- Requirement -->
+      <span class="form-label" style="margin-top:16px;">描述你想要的资料</span>
+      <textarea id="eng-req" style="height:100px;" placeholder="例如：帮我整理定语从句的笔记，要有例句和真题"></textarea>
+
+      <!-- Generate row -->
+      <div class="gen-row">
+        <button class="btn-primary" onclick="generateMaterial('english')">生成资料</button>
+        <span class="gen-hint" id="eng-hint">在上方输入框中描述你想要的资料类型，然后点击生成</span>
+      </div>
+      <div class="warning-tip hidden" id="eng-warning" style="margin-top:10px;">请先输入你对资料的需求描述</div>
+
+      <!-- Spinner -->
+      <div class="spinner" id="eng-spinner"><span class="spin-dot"></span>AI 正在生成资料，请稍候...</div>
+
+      <!-- Result -->
+      <div class="result-area" id="eng-result">
+        <div class="expander">
+          <div class="expander-header" onclick="this.nextElementSibling.classList.toggle('show');this.querySelector('span').innerText=this.nextElementSibling.classList.contains('show')?'▴':'▾';">
+            AI 思考过程（共 896 字） <span>▾</span>
+          </div>
+          <div class="expander-body">
+            用户需要定语从句的语法笔记。我将从以下维度组织内容...<br>
+            1. 定语从句基本概念：关系代词与关系副词<br>
+            2. 限制性与非限制性定语从句的区别...<br>
+            <span style="color:var(--text-muted);">...（共 12 行思考内容）</span>
+          </div>
+        </div>
+        <div class="success-tip" id="eng-success">生成完成！共 2,156 字</div>
+        <button class="dl-btn" onclick="alert('模拟下载：考研英语_语法专题.docx')">下载 DOCX</button>
+        <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px;">文件名：考研英语_语法专题.docx · Pandoc 渲染 · 含模板格式</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Tab ──
+function switchTab(name,el){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// ── Math topic list (110 items, sampled) ──
+const MATH_TOPICS = [
+  '01. 函数与极限','02. 导数与微分','03. 微分中值定理','04. 不定积分','05. 定积分','06. 定积分的应用',
+  '07. 微分方程','08. 向量代数与空间解析几何','09. 多元函数微分学','10. 偏导数与全微分',
+  '11. 多元函数极值','12. 二重积分','13. 三重积分','14. 曲线积分','15. 曲面积分',
+  '16. 无穷级数','17. 幂级数','18. 傅里叶级数','19. 行列式','20. 矩阵及其运算',
+  '21. 矩阵的秩','22. 向量组与线性表示','23. 向量组的秩','24. 线性方程组','25. 特征值与特征向量',
+  '26. 相似对角化','27. 二次型','28. 随机事件与概率','29. 条件概率与独立性','30. 随机变量与分布函数',
+  '31. 二维随机变量','32. 数字特征','33. 大数定律与中心极限定理','34. 数理统计基本概念','35. 参数估计',
+  '36. 假设检验', '37. 泰勒公式与麦克劳林展开','38. 洛必达法则','39. 拉格朗日中值定理','40. 柯西中值定理',
+  '41. 换元积分法','42. 分部积分法','43. 有理函数积分','44. 反常积分','45. 旋转体体积',
+  '46. 平面曲线弧长','47. 一阶微分方程','48. 高阶微分方程','49. 常系数线性微分方程','50. 方向导数与梯度',
+  '51. 隐函数求导','52. 重积分的应用','53. 格林公式','54. 高斯公式','55. 斯托克斯公式',
+  '56. 级数收敛性','57. 幂级数收敛半径','58. 矩阵的逆','59. 正交矩阵','60. 实对称矩阵',
+  '61. 基础解系','62. 非齐次线性方程组','63. 特征向量的线性无关性','64. 合同变换','65. 正定二次型',
+  '66. 离散型随机变量','67. 连续型随机变量','68. 期望与方差','69. 协方差与相关系数','70. 矩估计',
+  '71. 最大似然估计','72. 区间估计','73. 一元函数积分学','74. 多元函数积分学','75. 空间解析几何',
+  '76. 常微分方程','77. 偏微分方程','78. 概率论基础','79. 数理统计','80. 随机过程初步',
+  '81. 数列极限','82. 函数连续性','83. 闭区间连续函数性质','84. 一致连续','85. 导数的几何意义',
+  '86. 高阶导数','87. 参数方程求导','88. 极坐标','89. 曲率','90. 弧微分',
+  '91. 可分离变量方程','92. 齐次方程','93. 伯努利方程','94. 欧拉方程','95. 线性相关与无关',
+  '96. 极大线性无关组','97. 齐次方程组解的结构','98. 克莱姆法则','99. 分块矩阵','100. 初等变换',
+  '101. 向量内积','102. 施密特正交化','103. 特征多项式','104. 最小多项式','105. 若尔当标准形',
+  '106. 条件期望','107. 切比雪夫不等式','108. 随机变量的函数分布','109. 次序统计量','110. 贝叶斯估计'
+];
+
+function buildMathTopicList(){
+  const list=document.getElementById('math-topic-list');
+  list.innerHTML=MATH_TOPICS.map(t=>'<div class="ms-item" data-topic="'+t+'" onclick="toggleMathTopic(this)"><span class="ms-check">✓</span>'+t+'</div>').join('');
+}
+function toggleMathTopic(el){
+  el.classList.toggle('selected');
+  updateMathCount();
+}
+function filterMathTopics(query){
+  const q=query.toLowerCase();
+  document.querySelectorAll('#math-topic-list .ms-item').forEach(item=>{
+    item.style.display=item.dataset.topic.toLowerCase().includes(q)?'':'none';
+  });
+}
+function clearMathTopics(){
+  document.querySelectorAll('#math-topic-list .ms-item').forEach(item=>item.classList.remove('selected'));
+  updateMathCount();
+  document.querySelector('.ms-search input').value='';
+  filterMathTopics('');
+}
+function updateMathCount(){
+  const count=document.querySelectorAll('#math-topic-list .ms-item.selected').length;
+  document.getElementById('math-topic-count').innerText=count;
+  const hint=document.getElementById('math-hint');
+  if(hint)hint.innerText=count>0?'已选择 '+count+' 个知识点，输入需求后点击生成':'留空则使用全部 110 个知识点';
+}
+buildMathTopicList();
+
+// ── Vocab sub-category toggle ──
+function toggleVocabType(val){
+  document.getElementById('vocab-type-group').style.display=val==='单词归类总结'?'block':'none';
+}
+
+// ── Generate ──
+function generateMaterial(type){
+  const req=document.getElementById(type+'-req').value.trim();
+  const warn=document.getElementById(type+'-warning');
+  const hint=document.getElementById(type+'-hint');
+  const spinner=document.getElementById(type+'-spinner');
+  const result=document.getElementById(type+'-result');
+
+  if(!req){warn.classList.remove('hidden');return;}
+  warn.classList.add('hidden');
+  hint.style.display='none';
+  spinner.classList.add('show');
+  result.classList.remove('show');
+
+  setTimeout(()=>{
+    spinner.classList.remove('show');
+    result.classList.add('show');
+    const success=document.getElementById(type+'-success');
+    const wordCount=type==='math'?3842:2156;
+    success.innerText='生成完成！共 '+wordCount.toLocaleString()+' 字';
+  },2000);
+}
+</script>
+
+</body>
+</html>

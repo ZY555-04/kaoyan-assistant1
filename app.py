@@ -32,7 +32,7 @@ _policies.check_cache_replay_rules = lambda: None
 _cc.check_cache_replay_rules = lambda: None
 
 # ==================== 配置 ====================
-st.set_page_config(page_title="考研学习助手", page_icon="📚", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="考研学习助手", page_icon="", layout="wide", initial_sidebar_state="expanded")
 
 # API配置
 API_KEY = "sk-c4f69ncnuomnc8pprclmhlasndea7tdjvxeo49jno3bzxpa6"
@@ -53,32 +53,631 @@ EXPERIENCE_FILE = "agent_experience.md"
 # ==================== CSS样式 ====================
 st.markdown("""
 <style>
-    .main-title { background: linear-gradient(135deg, #d77757 0%, #e8926a 100%); padding: 1.5rem; border-radius: 1rem; color: white; text-align: center; margin-bottom: 1rem; }
-    .main-title h1 { font-size: 2rem; font-weight: 700; margin: 0; }
-    .main-title p { opacity: 0.9; margin-top: 0.5rem; }
+    /* ── Design Tokens ── */
+    :root {
+        --primary: #4f46e5;
+        --primary-hover: #4338ca;
+        --primary-soft: #eef2ff;
+        --primary-light: rgba(79,70,229,0.08);
+        --text-main: #1e293b;
+        --text-sub: #64748b;
+        --text-muted: #94a3b8;
+        --border: #e2e8f0;
+        --bg-base: #f1f5f9;
+        --bg-surface: #ffffff;
+        --bg-elevated: #f8fafc;
+        --success: #10b981;
+        --success-soft: #ecfdf5;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --radius-lg: 18px;
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+        --shadow-md: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05);
+        --shadow-lg: 0 2px 6px rgba(0,0,0,0.06), 0 8px 24px rgba(79,70,229,0.08);
+    }
 
-    .memory-card { padding: 12px; margin: 8px 0; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #d77757; cursor: pointer; transition: all 0.3s; }
-    .memory-card:hover { transform: translateX(5px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); background: #fff; }
+    /* ── Body / App Shell ── */
+    section.main { background-color: #f1f5f9 !important; }
+    div[data-testid="stAppViewContainer"] { background: #f1f5f9; }
+    .stApp { background: #f1f5f9; }
+    header[data-testid="stHeader"] { background: transparent; }
 
-    .learning-card { padding: 8px; margin: 3px 0; background: #fff8f0; border-radius: 6px; border-left: 3px solid #e8926a; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
-    .mastered-card { padding: 8px; margin: 3px 0; background: #f0faf4; border-radius: 6px; border-left: 3px solid #7cb896; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+    /* ── Sidebar (Glass + Gradient) ── */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(241,245,249,0.92) 50%, rgba(238,242,255,0.94) 100%) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        border-right: 1px solid rgba(226,232,240,0.6) !important;
+    }
+    section[data-testid="stSidebar"] div[data-testid="stSidebarNav"] { display: none; }
+    /* Hide Streamlit built-in toolbar & keyboard shortcuts */
+    [data-testid="stHeader"] { display: none !important; }
+    [data-testid="stSidebarHeader"] { display: none !important; }
+    button[data-testid="baseButton-headerNoPadding"],
+    button[data-testid="baseButton-header"] { display: none !important; }
+    /* Prevent sidebar horizontal scroll */
+    section[data-testid="stSidebar"] { overflow-x: hidden !important; }
 
-    .qa-card { background: #fff; border-radius: 14px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(215,119,87,0.06); margin-bottom: 16px; }
-    .ref-tag { display: inline-block; background: #fef5f0; color: #8b5a3c; padding: 3px 10px; border-radius: 20px; margin: 2px 4px; font-size: 12px; border: 1px solid #f0ddd0; }
+    /* ═══════════════════════════════════════════
+       TYPOGRAPHY — Modern system font stack
+       ═══════════════════════════════════════════ */
+    * {
+        font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif !important;
+    }
+    h1 { font-weight: 700 !important; color: #1e293b !important; letter-spacing: -0.02em; }
+    h2 { font-weight: 650 !important; color: #1e293b !important; letter-spacing: -0.01em; }
+    h3 { font-weight: 600 !important; color: #1e293b !important; }
+    p, li, label, span, div {
+        font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif !important;
+    }
+    /* Code stays monospace */
+    code, pre, .stCodeBlock {
+        font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, "Source Code Pro", monospace !important;
+    }
+    /* Sidebar text */
+    section[data-testid="stSidebar"] * {
+        font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif !important;
+    }
+    /* Buttons */
+    button, .stButton > button {
+        font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif !important;
+        font-weight: 500 !important;
+    }
+    /* Captions & hints */
+    .st-caption, small, .small-text {
+        font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif !important;
+        font-weight: 400 !important; color: #64748b !important;
+    }
 
+    /* ── Sidebar: hide collapse arrow ── */
+    button[data-testid="stSidebarCollapseButton"] { display: none !important; }
+    section[data-testid="stSidebar"] { min-width: 250px !important; }
+
+    /* ── Sidebar Brand ── */
+    .sidebar-brand {
+        display: flex; align-items: center; gap: 10px;
+        padding: 0.75rem 0.5rem 0.25rem 0.5rem; margin-bottom: 0.25rem;
+    }
+    .sidebar-brand-icon { animation: brandFloat 3s ease-in-out infinite; display: inline-flex; }
+    .sidebar-brand-icon svg { width: 26px; height: 26px; display: block; color: #6366f1; }
+    .sidebar-brand-text {
+        font-size: 1.15rem; font-weight: 700;
+        font-family: "STKaiti", "KaiTi", "STSong", "SimSun", serif !important;
+        background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 45%, #a855f7 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text; letter-spacing: 0.04em;
+    }
+    @keyframes brandFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-2px); }
+    }
+
+    /* ── Sidebar Divider ── */
+    .sidebar-divider {
+        height: 1px; margin: 0.5rem 0.25rem;
+        background: linear-gradient(90deg, transparent, #e2e8f0 20%, #e2e8f0 80%, transparent);
+    }
+
+    /* ── Sidebar Section Labels ── */
+    .sidebar-section-label {
+        font-size: 0.7rem; font-weight: 600; color: #94a3b8;
+        letter-spacing: 0.08em;
+        padding: 0.5rem 14px 0.2rem 14px; margin-top: 0.25rem;
+        font-family: "YouYuan", "Yuanti SC", "Microsoft YaHei", sans-serif !important;
+    }
+
+    /* ── Navigation Items ── */
+    .nav-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px; margin: 2px 4px; border-radius: 10px;
+        font-size: 0.88rem; font-weight: 500; color: #64748b;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer; position: relative; overflow: hidden;
+        text-decoration: none !important;
+        font-family: "STKaiti", "KaiTi", "Microsoft YaHei", sans-serif !important;
+        letter-spacing: 0.02em;
+    }
+    .nav-item:hover {
+        background: #f1f5f9; color: #4f46e5;
+        transform: translateX(3px); text-decoration: none !important;
+    }
+    .nav-item-active {
+        background: linear-gradient(135deg, #eef2ff 0%, #f0e6ff 100%) !important;
+        color: #4f46e5 !important; font-weight: 600 !important;
+        box-shadow: 0 1px 3px rgba(79,70,229,0.12);
+        cursor: default; position: relative;
+        font-family: "STKaiti", "KaiTi", "Microsoft YaHei", sans-serif !important;
+        letter-spacing: 0.03em !important;
+    }
+    /* Glow border on active item */
+    .nav-item-active::after {
+        content: ''; position: absolute; inset: 0; border-radius: 10px;
+        padding: 1.5px;
+        background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899, #6366f1);
+        background-size: 300% 300%;
+        animation: glowFlow 3s ease-in-out infinite;
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor; mask-composite: exclude;
+        pointer-events: none;
+    }
+    @keyframes glowFlow {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+    .nav-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    @keyframes navDotPulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.6; transform: scale(1.3); }
+    }
+
+    /* ── Button Press Animation ── */
+    .st-key-nav_hub button:active, .st-key-nav_main button:active,
+    .st-key-nav_english button:active, .st-key-nav_checkin button:active,
+    .st-key-nav_popularity button:active, .st-key-nav_material button:active,
+    .st-key-nav_suggest button:active {
+        transform: scale(0.96) !important;
+        transition: transform 0.1s ease !important;
+    }
+
+    /* Sidebar link — clean anchor style */
+    a.nav-item { text-decoration: none !important; }
+    a.nav-item:hover { text-decoration: none !important; }
+
+    /* ── Colored dots for each nav button ── */
+    .st-key-nav_hub button::before,
+    .st-key-nav_main button::before,
+    .st-key-nav_english button::before,
+    .st-key-nav_checkin button::before,
+    .st-key-nav_popularity button::before,
+    .st-key-nav_material button::before,
+    .st-key-nav_suggest button::before {
+        content: '';
+        display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+        margin-right: 10px; flex-shrink: 0;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .st-key-nav_hub button::before        { background: #4f46e5; box-shadow: 0 0 6px rgba(79,70,229,0.4); }
+    .st-key-nav_main button::before       { background: #3b82f6; box-shadow: 0 0 6px rgba(59,130,246,0.4); }
+    .st-key-nav_english button::before    { background: #059669; box-shadow: 0 0 6px rgba(5,150,105,0.4); }
+    .st-key-nav_checkin button::before    { background: #16a34a; box-shadow: 0 0 6px rgba(22,163,74,0.4); }
+    .st-key-nav_popularity button::before { background: #db2777; box-shadow: 0 0 6px rgba(219,39,119,0.4); }
+    .st-key-nav_material button::before   { background: #ca8a04; box-shadow: 0 0 6px rgba(202,138,4,0.4); }
+    .st-key-nav_suggest button::before    { background: #0284c7; box-shadow: 0 0 6px rgba(2,132,199,0.4); }
+
+    /* Active nav-item dot — glowing */
+    .nav-item-active .nav-dot {
+        background: #4f46e5 !important;
+        box-shadow: 0 0 8px rgba(79,70,229,0.5);
+        animation: navDotPulse 1.8s ease-in-out infinite;
+    }
+
+    /* Sidebar buttons — match nav-item font + style */
+    .st-key-nav_hub button, .st-key-nav_main button, .st-key-nav_english button,
+    .st-key-nav_checkin button, .st-key-nav_popularity button,
+    .st-key-nav_material button, .st-key-nav_suggest button {
+        background: transparent !important; color: #64748b !important;
+        border: none !important; border-radius: 10px !important;
+        font-weight: 500 !important; text-align: left !important;
+        justify-content: flex-start !important; padding: 10px 14px !important;
+        margin: 2px 4px !important;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        width: calc(100% - 8px) !important;
+        font-family: "STKaiti", "KaiTi", "Microsoft YaHei", sans-serif !important;
+        letter-spacing: 0.02em !important; font-size: 0.88rem !important;
+    }
+    .st-key-nav_hub button:hover, .st-key-nav_main button:hover,
+    .st-key-nav_english button:hover, .st-key-nav_checkin button:hover,
+    .st-key-nav_popularity button:hover, .st-key-nav_material button:hover,
+    .st-key-nav_suggest button:hover {
+        background: #f1f5f9 !important; color: #4f46e5 !important;
+        transform: translateX(3px) !important;
+    }
+
+    /* ── Sidebar User Card ── */
+    .sidebar-user {
+        display: flex; align-items: center; gap: 12px;
+        padding: 0.75rem 0.5rem; margin: 0.25rem 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(238,242,255,0.5) 100%);
+        border-radius: 14px; border: 1px solid rgba(226,232,240,0.5);
+    }
+    .sidebar-avatar {
+        width: 38px; height: 38px; border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+        background-size: 200% 200%;
+        animation: avatarShine 3s ease-in-out infinite;
+        color: #ffffff; display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 0.95rem; flex-shrink: 0;
+        box-shadow: 0 2px 12px rgba(99,102,241,0.3);
+    }
+    @keyframes avatarShine {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+    .sidebar-user-info { display: flex; flex-direction: column; }
+    .sidebar-username {
+        font-weight: 700; font-size: 0.85rem; color: #1e293b; line-height: 1.3;
+    }
+    .sidebar-subtitle {
+        font-size: 0.72rem; color: #64748b;
+    }
+    /* Stats row */
+    .sidebar-stats {
+        display: flex; gap: 12px; padding: 0.25rem 0.5rem 0.5rem 0.5rem;
+        font-size: 0.7rem; color: #64748b;
+    }
+    .sidebar-stat { display: flex; align-items: center; gap: 4px; }
+    .sidebar-stat strong { color: #4f46e5; }
+
+    /* ── Logout Button ── */
+    .st-key-sidebar_logout button {
+        background: transparent !important; color: #94a3b8 !important;
+        border: 1px solid #e2e8f0 !important; border-radius: 10px !important;
+        font-size: 0.82rem !important; padding: 8px !important;
+        transition: all 0.2s !important;
+    }
+    .st-key-sidebar_logout button:hover {
+        color: #ef4444 !important; border-color: #fecaca !important;
+        background: #fef2f2 !important;
+    }
+
+    /* ═══════════════════════════════════════
+       BREATHING PAGE TRANSITIONS
+       ═══════════════════════════════════════ */
+
+    /* Main content — breathe in on every page load */
+    .stMainBlockContainer {
+        animation: breatheIn 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    }
+    @keyframes breatheIn {
+        0%   { opacity: 0; transform: scale(0.97) translateY(6px); filter: blur(4px); }
+        30%  { opacity: 0.5; filter: blur(2px); }
+        60%  { opacity: 0.9; transform: scale(1.005) translateY(0); filter: blur(0); }
+        100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+    }
+
+    /* Sidebar — gentle slide-in */
+    section[data-testid="stSidebar"] {
+        animation: sidebarSlideIn 0.5s ease-out both;
+    }
+    @keyframes sidebarSlideIn {
+        from { opacity: 0; transform: translateX(-12px); }
+        to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Feature cards — staggered shimmer entrance */
+    .feature-card {
+        animation: cardReveal 0.55s ease-out both, cardBreathe 4s ease-in-out infinite;
+    }
+    @keyframes cardReveal {
+        0%   { opacity: 0; transform: translateY(16px) scale(0.96); }
+        60%  { opacity: 0.7; }
+        100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    /* Stagger: each card appears slightly later than the previous */
+    .feature-card:nth-child(1) { animation-delay: 0.05s, 0.05s; }
+    .feature-card:nth-child(2) { animation-delay: 0.12s, 0.12s; }
+    .feature-card:nth-child(3) { animation-delay: 0.19s, 0.19s; }
+    .feature-card:nth-child(4) { animation-delay: 0.26s, 0.26s; }
+
+    /* QA card — smooth rise */
+    .qa-card {
+        animation: qaRise 0.5s ease-out both;
+    }
+    @keyframes qaRise {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Loading Pulse (plays once on page load, feels intentional) ── */
+    .main-title {
+        animation: bannerReveal 0.6s ease-out both;
+    }
+    @keyframes bannerReveal {
+        0%   { opacity: 0; transform: scale(0.95); }
+        50%  { opacity: 0.8; }
+        100% { opacity: 1; transform: scale(1); }
+    }
+
+    /* Navigation item — subtle delayed fade */
+    .nav-item {
+        animation: navItemFade 0.4s ease-out both;
+    }
+    @keyframes navItemFade {
+        from { opacity: 0; transform: translateX(-8px); }
+        to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* ── Main Title Banner ── */
+    .main-title {
+        background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 35%, #3b82f6 100%) !important;
+        background-size: 200% 200% !important;
+        animation: bannerReveal 0.6s ease-out both, bannerShimmer 6s ease-in-out infinite !important;
+        padding: 2rem 2rem !important; border-radius: 20px !important;
+        color: #ffffff !important; text-align: center; margin-bottom: 1.2rem;
+        border: 1px solid rgba(255,255,255,0.18) !important;
+        box-shadow: 0 8px 32px rgba(29,78,216,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+        position: relative; overflow: hidden;
+    }
+    .main-title::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.08) 50%, transparent 70%);
+        background-size: 200% 200%;
+        animation: bannerShine 8s ease-in-out infinite;
+    }
+    @keyframes bannerShimmer {
+        0%,100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+    @keyframes bannerShine {
+        0%,100% { background-position: -100% -100%; }
+        50% { background-position: 200% 200%; }
+    }
+    .main-title * { color: #ffffff !important; position: relative; z-index: 1; }
+    .main-title h1 { font-size: 1.65rem !important; font-weight: 650 !important; margin: 0 !important; letter-spacing: -0.01em !important; }
+    .main-title p { opacity: 0.82; margin-top: 0.35rem; font-size: 0.88rem; font-weight: 380; letter-spacing: 0.01em; }
+
+    /* ── Feature Cards (glass morphism) ── */
+    .feature-card {
+        background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.85) 100%);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(226,232,240,0.8);
+        border-radius: 20px; padding: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03), 0 8px 24px rgba(0,0,0,0.04);
+        transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        cursor: pointer; margin-bottom: 4px; position: relative; overflow: hidden;
+        height: 100%; min-height: 190px;
+        display: flex; flex-direction: column;
+    }
+    .feature-card::before {
+        content: '';
+        position: absolute; top: -50%; right: -50%; width: 100%; height: 100%;
+        background: radial-gradient(circle, rgba(99,102,241,0.04) 0%, transparent 70%);
+        transition: all 0.5s ease; pointer-events: none;
+    }
+    .feature-card:hover::before {
+        top: -20%; right: -30%; width: 120%; height: 120%;
+    }
+    .feature-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06), 0 12px 32px rgba(99,102,241,0.1);
+        border-color: rgba(99,102,241,0.25);
+    }
+    .feature-card .card-icon {
+        width: 48px; height: 48px; border-radius: 14px;
+        display: inline-flex; align-items: center; justify-content: center;
+        margin-bottom: 14px; flex-shrink: 0; position: relative; z-index: 1;
+    }
+    .feature-card .card-icon svg {
+        width: 26px; height: 26px;
+    }
+    .feature-card .card-title {
+        font-size: 1rem; font-weight: 650; color: #1e293b; margin-bottom: 4px;
+        position: relative; z-index: 1;
+        letter-spacing: -0.01em; line-height: 1.3;
+    }
+    .feature-card .card-desc {
+        font-size: 0.8rem; color: #64748b; line-height: 1.5; margin-bottom: 10px;
+        position: relative; z-index: 1; font-weight: 420;
+    }
+    .feature-card .card-tags {
+        display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px;
+        position: relative; z-index: 1;
+    }
+    .feature-card .card-tag {
+        font-size: 0.68rem; padding: 3px 9px;
+        background: rgba(241,245,249,0.8); color: #6366f1;
+        border-radius: 20px; font-weight: 500; letter-spacing: 0.01em;
+        backdrop-filter: blur(4px);
+    }
+    /* ── Card Icon Color Variants ── */
+    .icon-math { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); color: #4f46e5; }
+    .icon-fire { background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%); color: #db2777; }
+    .icon-eng  { background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); color: #059669; }
+    .icon-fb   { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); color: #0284c7; }
+    .icon-mat  { background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%); color: #ca8a04; }
+    .icon-ck   { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); color: #16a34a; }
+
+    /* ── Card Breathing Animation ── */
+    @keyframes cardBreathe {
+        0%, 100% { box-shadow: 0 1px 3px rgba(0,0,0,0.03), 0 8px 24px rgba(0,0,0,0.04); }
+        50% { box-shadow: 0 2px 6px rgba(0,0,0,0.04), 0 10px 28px rgba(99,102,241,0.06); }
+    }
+    .feature-card:hover { animation: none; }
+
+    /* ── Q&A Card ── */
+    .qa-card {
+        background: #ffffff; border-radius: 18px;
+        padding: 24px; border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05);
+        margin-bottom: 16px;
+    }
+
+    /* ── Memory / Knowledge Cards ── */
+    .memory-card {
+        padding: 12px 14px; margin: 6px 0;
+        background: #ffffff; border: 1px solid #e2e8f0;
+        border-radius: 12px; cursor: pointer;
+        transition: all 0.25s ease;
+    }
+    .memory-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06), 0 8px 24px rgba(79,70,229,0.08);
+        border-color: rgba(79,70,229,0.25);
+    }
+    .learning-card {
+        padding: 8px 10px; margin: 3px 0;
+        background: #fff7ed; border-radius: 6px;
+        border-left: 3px solid #f97316;
+        font-size: 12px; overflow: hidden; text-overflow: ellipsis;
+    }
+    .mastered-card {
+        padding: 8px 10px; margin: 3px 0;
+        background: #f0fdf4; border-radius: 6px;
+        border-left: 3px solid #22c55e;
+        font-size: 12px; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* ── Reference Tags ── */
+    .ref-tag {
+        display: inline-block;
+        background: #eef2ff; color: #4f46e5;
+        padding: 3px 10px; border-radius: 20px;
+        margin: 2px 4px; font-size: 12px;
+        border: 1px solid rgba(79,70,229,0.15);
+    }
+
+    /* ── Calendar Grid ── */
     .cal-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; text-align: center; }
     .cal-grid .cal-cell { padding: 4px 0; }
     .cal-grid .cal-cell small { font-size: 11px; }
 
-    @media (max-width: 1024px) {
-        .main-title h1 { font-size: 1.6rem !important; }
-        .qa-card { padding: 18px !important; }
+    /* ── Quiz Area ── */
+    .quiz-area { max-height: 600px; overflow-y: auto; padding-right: 4px; }
+
+    /* ═══════════════════════════════════
+       STREAMLIT COMPONENT OVERRIDES
+       ═══════════════════════════════════ */
+
+    /* Knowledge base buttons */
+    .st-key-view_ button, .st-key-quiz_ button, .st-key-concept_ button {
+        padding: 0.6rem 1rem !important;
+        font-size: 0.88rem !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
     }
 
+    /* ── Buttons ── */
+    button[kind="primary"], .st-key-hub_qa button, .st-key-hub_pop button,
+    .st-key-hub_english button, .st-key-hub_suggest button,
+    .st-key-hub_material button, .st-key-hub_checkin button,
+    button[data-testid="baseButton-primary"],
+    div[data-testid="stButton"] button[kind="primary"] {
+        background: #2563eb !important; color: #ffffff !important;
+        border: none !important; border-radius: 24px !important;
+        font-weight: 700 !important; padding: 0.6rem 1.5rem !important;
+        transition: all 0.2s !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
+        letter-spacing: 0.02em !important;
+    }
+    button[kind="primary"]:hover, button[data-testid="baseButton-primary"]:hover {
+        background: #4338ca !important; transform: scale(1.02);
+    }
+    button[kind="secondary"], button[kind="secondary"]:hover {
+        background: #ffffff !important; color: #64748b !important;
+        border: 1px solid #e2e8f0 !important; border-radius: 24px !important;
+        font-weight: 500 !important;
+    }
+
+    /* ── Container cards (border=True) ── */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 18px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05) !important;
+        padding: 8px !important;
+    }
+
+    /* ── Tabs ── */
+    div[data-testid="stTabs"] button {
+        font-weight: 500 !important; color: #64748b !important;
+        border-radius: 8px !important; padding: 0.45rem 1rem !important;
+    }
+    div[data-testid="stTabs"] button[aria-selected="true"] {
+        color: #4f46e5 !important; font-weight: 600 !important;
+        background: #eef2ff !important;
+    }
+
+    /* ── Expanders ── */
+    div[data-testid="stExpander"] {
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 12px !important;
+        background: #ffffff !important;
+    }
+    div[data-testid="stExpander"] summary {
+        font-weight: 600 !important; color: #64748b !important;
+        padding: 10px 14px !important;
+    }
+    /* Expander: force-hide icon text overflow */
+    div[data-testid="stExpander"] summary {
+        overflow: hidden !important;
+    }
+    div[data-testid="stExpander"] summary p {
+        display: inline !important;
+    }
+    div[data-testid="stExpander"] details summary > span:first-child,
+    div[data-testid="stExpander"] summary svg,
+    div[data-testid="stExpander"] summary [data-testid="stIconMaterial"],
+    div[data-testid="stExpander"] summary [class*="material"] {
+        font-size: 0 !important; width: 0 !important; height: 0 !important;
+        overflow: hidden !important; display: inline-block !important;
+        color: transparent !important; line-height: 0 !important;
+    }
+
+    /* File uploader: hide icon text */
+    div[data-testid="stFileUploader"] [data-testid="stIconMaterial"],
+    div[data-testid="stFileUploader"] [class*="material"],
+    div[data-testid="stFileUploadDropzone"] span[class*="icon"],
+    section[data-testid="stFileUploadDropzone"] [aria-hidden="true"] {
+        font-size: 0 !important; width: 0 !important; overflow: hidden !important;
+        color: transparent !important; display: inline-block !important;
+    }
+
+    /* ── Metrics ── */
+    div[data-testid="stMetricValue"] { color: #4f46e5 !important; font-weight: 800 !important; }
+
+    /* ── Select boxes / Inputs ── */
+    div[data-testid="stSelectbox"], input, textarea, .stTextInput input {
+        border-radius: 8px !important;
+    }
+    input:focus, textarea:focus, div[data-testid="stSelectbox"]:focus-within {
+        border-color: #4f46e5 !important;
+        box-shadow: 0 0 0 3px rgba(79,70,229,0.10) !important;
+    }
+
+    /* ── Radio buttons ── */
+    div[data-testid="stRadio"] label {
+        border: 1px solid #e2e8f0 !important; border-radius: 20px !important;
+        padding: 5px 14px !important; margin-right: 4px !important;
+    }
+
+    /* ── Form submit ── */
+    div[data-testid="stFormSubmitButton"] button {
+        background: #4f46e5 !important; color: white !important;
+        border: none !important; border-radius: 24px !important;
+        font-weight: 600 !important; width: 100% !important;
+    }
+    div[data-testid="stFormSubmitButton"] button:hover { background: #4338ca !important; }
+
+    /* ── Progress bars ── */
+    div[data-testid="stProgress"] > div > div { background: #4f46e5 !important; }
+
+    /* ── Success / Info / Warning / Error messages ── */
+    div[data-testid="stSuccessMessage"], div[data-testid="stInfoMessage"],
+    div[data-testid="stWarningMessage"], div[data-testid="stErrorMessage"] {
+        border-radius: 10px !important; border: none !important;
+    }
+
+    /* ── Chat input ── */
+    div[data-testid="stChatInput"] textarea {
+        border-radius: 24px !important; border: 1px solid #e2e8f0 !important;
+    }
+
+    /* ═══════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════ */
+    @media (max-width: 1024px) {
+        .main-title h1 { font-size: 1.5rem !important; }
+        .qa-card { padding: 18px !important; }
+    }
     @media (max-width: 768px) {
-        .main-title { padding: 1rem !important; }
-        .main-title h1 { font-size: 1.3rem !important; }
-        .main-title p { font-size: 0.85rem !important; }
+        .main-title { padding: 1.2rem !important; }
+        .main-title h1 { font-size: 1.25rem !important; }
+        .main-title p { font-size: 0.8rem !important; }
         .qa-card { padding: 14px !important; font-size: 14px !important; }
         .learning-card, .mastered-card { white-space: normal !important; font-size: 11px !important; }
         .memory-card { padding: 8px !important; font-size: 13px !important; }
@@ -88,23 +687,50 @@ st.markdown("""
         div[data-testid="stMetricLabel"] { font-size: 0.75rem !important; }
         div[data-testid="stHorizontalBlock"] { gap: 0.5rem !important; }
     }
-
     @media (max-width: 480px) {
         .main-title { padding: 0.8rem !important; }
-        .main-title h1 { font-size: 1.1rem !important; }
+        .main-title h1 { font-size: 1rem !important; }
         .qa-card { padding: 10px !important; }
         .cal-grid { grid-template-columns: repeat(5, 1fr) !important; }
-        div[data-testid="stMetricValue"] { font-size: 0.95rem !important; }
+        div[data-testid="stMetricValue"] { font-size: 0.9rem !important; }
         div[data-testid="stMetricLabel"] { font-size: 0.7rem !important; }
     }
-    .quiz-area { max-height: 600px; overflow-y: auto; padding-right: 4px; }
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<link href="https://cdn.bootcdn.net/ajax/libs/material-design-icons/3.0.1/iconfont/material-icons.min.css" rel="stylesheet">
 """, unsafe_allow_html=True)
 
 st.components.v1.html("""
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+(function(){
+  function cleanIcons(){
+    var els=document.querySelectorAll('[class*="material-icons"],[class*="material-symbols"],[class*="keyboard_"]');
+    for(var i=0;i<els.length;i++){
+      var el=els[i];
+      el.innerHTML=''; el.textContent='';
+      el.style.fontSize='0'; el.style.width='20px'; el.style.height='20px';
+      el.style.display='inline-block'; el.style.overflow='hidden';
+      el.style.color='transparent'; el.style.userSelect='none';
+    }
+    var walker=document.createTreeWalker(document.body,4,null,false), node;
+    while(node=walker.nextNode()){
+      var v=node.nodeValue;
+      if(!v) continue;
+      var t=v.trim();
+      if(/^(expand_more|expand_less|chevron_right|chevron_left|keyboard_arrow|arrow_|keyboard_double|upload|file_upload|cloud_upload|attach_file|close|check|search|menu|more_vert|more_horiz|delete|edit|add|remove|visibility|visibility_off)/.test(t)){
+        node.nodeValue='';
+      } else if(/_arrow|upload/i.test(v)){
+        node.nodeValue=v.replace(/_arrow[-_]?/g,'').replace(/\bupload\b/gi,'');
+      }
+    }
+  }
+  cleanIcons();
+  new MutationObserver(cleanIcons).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
 """, height=0)
 
 # ==================== 持久化登录（CookieManager 方案） ====================
@@ -1050,6 +1676,147 @@ def check_checkin_reminders(user_id):
         reminders.append(("warning", f"当前活跃计划平均完成率 {plan_progress}%，低于 80%，建议复盘。"))
     return reminders
 
+def get_daily_goal_hours(user_id):
+    """从活跃学习计划获取每日学习目标（小时），无计划时默认6小时"""
+    row = checkin_fetch_one(
+        "SELECT daily_hours FROM study_plans WHERE user_id=? AND status='active' ORDER BY created_at DESC LIMIT 1",
+        (user_id,))
+    return float(row["daily_hours"]) if row and row["daily_hours"] else 6.0
+
+def get_time_period():
+    """判断当前时段"""
+    h = datetime.now().hour
+    if 5 <= h < 9:
+        return "清晨"
+    elif 9 <= h < 12:
+        return "上午"
+    elif 12 <= h < 14:
+        return "午间"
+    elif 14 <= h < 18:
+        return "下午"
+    elif 18 <= h < 22:
+        return "晚间"
+    else:
+        return "深夜"
+
+def get_flow_focus_data(user_id):
+    """汇聚今日心流数据：总时长、目标、进度、打卡状态、心情、连续天数"""
+    today_minutes = get_today_duration(user_id)
+    pomo_count, pomo_minutes = get_today_pomodoros(user_id)
+    # 番茄钟时长与打卡时长取最大值（避免重复计算）
+    total_minutes = max(today_minutes, pomo_minutes) if pomo_minutes else today_minutes
+    goal_hours = get_daily_goal_hours(user_id)
+    goal_minutes = goal_hours * 60
+    progress_pct = min(round(total_minutes / goal_minutes * 100) if goal_minutes > 0 else 0, 100)
+    current_ck = get_today_checkin(user_id)
+    checked_in = current_ck is not None
+    mood = current_ck["mood"] if current_ck else None
+    streak = get_consecutive_days(user_id)
+    return {
+        "total_hours": round(total_minutes / 60, 1),
+        "total_minutes": total_minutes,
+        "goal_hours": goal_hours,
+        "progress_pct": progress_pct,
+        "checked_in": checked_in,
+        "mood": mood,
+        "streak": streak,
+    }
+
+# ── 心流寄语：规则兜底 + LLM 生成 ──
+
+FLOW_FALLBACKS = {
+    "清晨": [
+        "清晨的每一分钟都在为未来铺路，今天加油。",
+        "趁晨光正好，开启专注的一天。",
+        "早起的你，已经领先了大多数人。",
+    ],
+    "上午": [
+        "上午是大脑最清醒的时段，保持这份专注。",
+        "稳步推进，今天的目标正在靠近。",
+        "按自己的节奏来，每一步都算数。",
+    ],
+    "午间": [
+        "适当休整后继续，下午还有目标等你。",
+        "短暂的休息是为了更好的出发。",
+        "保持节奏，不急不躁。",
+    ],
+    "下午": [
+        "下午是攻坚的好时段，持续推进。",
+        "还有半天的机会，把进度再推一步。",
+        "专注当下，完成比完美更重要。",
+    ],
+    "晚间": [
+        "今天的坚持值得肯定，回顾一下收获。",
+        "夜深人静正是深度学习时，但别太晚。",
+        "复盘今日所学，让努力有迹可循。",
+    ],
+    "深夜": [
+        "夜深了，今天的努力已足够，早点休息。",
+        "身体是革命的本钱，明天再战。",
+        "今天的每一分钟都不会白费，晚安。",
+    ],
+}
+
+def pick_flow_message(user_id):
+    """根据时段 + 打卡数据选择心流寄语（纯规则，零延迟）"""
+    data = get_flow_focus_data(user_id)
+    period = get_time_period()
+    candidates = FLOW_FALLBACKS.get(period, FLOW_FALLBACKS["上午"])
+    pct = data["progress_pct"]
+
+    # 根据进度微调选句
+    if pct == 0 and data["streak"] >= 7:
+        idx = 0  # 有连续打卡但今天还没开始：温和提醒
+    elif pct >= 80:
+        idx = 1  # 快完成了：肯定
+    elif pct >= 50:
+        idx = 0  # 过半：鼓励保持
+    else:
+        idx = min(pct // 30, len(candidates) - 1)  # 根据进度梯度选
+
+    # 深夜 + 高完成度 → 劝休息
+    if period == "深夜" and pct >= 80:
+        return "今日目标已达成，这份坚持值得骄傲，去休息吧。"
+
+    return candidates[idx]
+
+def generate_flow_message_prompt(user_id):
+    """
+    构建心流寄语 LLM prompt 字符串。
+    调用方用 call_llm_api(prompt_str, model="mimo-v2.5", max_tokens=100) 获取 AI 寄语。
+    """
+    data = get_flow_focus_data(user_id)
+    period = get_time_period()
+
+    prompt = f"""你是考研备考助手。根据以下用户数据，生成一句"今日心流寄语"。
+
+## 用户数据
+- 当前时段：{period}
+- 今日已学习：{data['total_hours']} 小时（每日目标 {data['goal_hours']} 小时）
+- 目标完成度：{data['progress_pct']}%
+- 今日是否已打卡：{'是' if data['checked_in'] else '否'}
+- 今日心情：{data['mood'] or '未记录'}
+- 连续打卡：{data['streak']} 天
+
+## 输出要求
+1. 只输出一句话（15-30 字），不加前缀、引号或解释
+2. 语气朴素理性，不使用"亲爱的""孩子""老师""同学"等称呼
+3. 时段对应态度：
+   - 清晨：鼓励开启新一天，简短有力
+   - 上午：肯定早间努力，提醒保持节奏
+   - 午间：提醒适当休息，储备下午精力
+   - 下午：关注进度推进，给予方向感
+   - 晚间：回顾今日收获，肯定坚持
+   - 深夜：温和提醒休息，不鼓励透支
+4. 完成度对应态度：
+   - 0%（未开始）：温和提醒，不施加压力
+   - 1-50%：鼓励推进，肯定已付出的努力
+   - 50-80%：肯定进展，提醒保持节奏
+   - 80%+：赞赏坚持，鼓励收尾
+5. 连续打卡 ≥ 7 天时可含蓄肯定习惯的力量"""
+
+    return prompt
+
 # ==================== 用户画像模块 ====================
 
 def _profile_columns():
@@ -1803,7 +2570,7 @@ def render_qa_cards(raw_text, columns=2, typing=False):
                     st.markdown(_escape_md(_collapse_math(opt)))
 
         if answer or explain:
-            with st.expander("📖 答案与解析", expanded=False):
+            with st.expander("答案与解析", expanded=False):
                 if answer:
                     st.markdown(f"**正确答案**: {_escape_md(_collapse_math(_fix_latex(answer)))}")
                 if explain:
@@ -2409,12 +3176,12 @@ def fallback_answer(query, docs):
         return "未找到相关资料"
     best = docs[0]
     text = best["text"]
-    return f"""📚 根据检索到的资料回答【{query}】：
+    return f"""根据检索到的资料回答【{query}】：
 
 {text[:600]}...
 
 ---
-📖 参考来源：{best['id']} (相关性: {best['score']})"""
+参考来源：{best['id']} (相关性: {best['score']})"""
 
 # ==================== 幻觉检测 ====================
 
@@ -2489,7 +3256,7 @@ def trigger_self_learning(rule_text: str) -> str:
         updated = f"{existing}\n{new_entry}\n--- 结束记录 ---"
 
     save_agent_experience(updated)
-    return f"\n🔄 **自学习已触发** — **已将以下规则追加至经验库**：{rule_text}\n**当前状态**：底层逻辑未受影响，增量规则已生效。"
+    return f"\n**自学习已触发** — **已将以下规则追加至经验库**：{rule_text}\n**当前状态**：底层逻辑未受影响，增量规则已生效。"
 
 def agent_reflect(question, answer, feedback):
     try:
@@ -2735,7 +3502,7 @@ if not st.session_state.logged_in:
         st.stop()
     st.markdown("""
     <div class="main-title">
-        <h1>📚 考研学习助手</h1>
+        <h1>考研学习助手</h1>
         <p>多用户知识问答系统</p>
     </div>
     """, unsafe_allow_html=True)
@@ -2788,87 +3555,487 @@ if not st.session_state.logged_in:
 
     st.stop()
 
-# ==================== Hub 主界面 ====================
-if st.session_state.page == "hub":
+# ==================== 全局侧边栏导航 ====================
+_username = st.session_state.get('username', '?')
+with st.sidebar:
+    # 品牌区 — 渐变标题 (SVG icon)
     st.markdown("""
-    <div class="main-title">
-        <h1>📚 考研学习助手</h1>
-        <p>请选择功能模块</p>
+    <div class="sidebar-brand">
+        <span class="sidebar-brand-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+        <span class="sidebar-brand-text">考研学习助手</span>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown(f"##### 👋 {st.session_state.get('username', '?')}，欢迎回来")
-    st.markdown("---")
+    st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        with st.container(border=True):
-            st.markdown("### 📐 考研数学问答工具")
-            st.caption("110个知识点 · 智能问答 · 遗忘曲线复习")
-            if st.button("进入问答工具", key="hub_qa", use_container_width=True):
-                st.session_state.page = "main"
-                st.rerun()
-    with col2:
-        with st.container(border=True):
-            st.markdown("### 🔥 高校热度查询")
-            st.caption("查院校 · 看数据 · 备考参考")
-            if st.button("进入热度查询", key="hub_pop", use_container_width=True):
-                st.session_state.page = "popularity"
-                st.rerun()
-
-    col3, col4 = st.columns(2)
-    with col3:
-        with st.container(border=True):
-            st.markdown("### 📖 英语专家")
-            st.caption("作文批改 · 长难句解析 · 翻译 · 单词记忆")
-            if st.button("进入英语专家", key="hub_english", use_container_width=True):
-                st.session_state.page = "english"
-                st.rerun()
-    with col4:
-        with st.container(border=True):
-            st.markdown("### 💬 提建议")
-            st.caption("反馈问题 · 提出需求")
-            if st.button("提交建议", key="hub_suggest", use_container_width=True):
-                st.session_state.page = "suggest"
+    # 导航分组 1: 核心功能
+    st.markdown('<div class="sidebar-section-label">核心功能</div>', unsafe_allow_html=True)
+    _group1 = [
+        ("hub",    "备考看板"),
+        ("main",   "数学问答"),
+        ("english","英语专家"),
+        ("checkin","打卡督学"),
+    ]
+    current_page = st.session_state.get("page", "hub")
+    for p, label in _group1:
+        if current_page == p:
+            st.markdown(f'<div class="nav-item nav-item-active" data-nav="{p}"><span class="nav-dot"></span>{label}</div>', unsafe_allow_html=True)
+        else:
+            if st.button(label, key=f"nav_{p}", use_container_width=True):
+                st.session_state.page = p
                 st.rerun()
 
-    with st.container(border=True):
-        st.markdown("### 📚 学习资料")
-        st.caption("AI 生成习题册 · 知识点整理 · 备考资料")
-        if st.button("进入学习资料", key="hub_material", use_container_width=True):
-            st.session_state.page = "material"
-            st.rerun()
+    # 导航分组 2: 辅助工具
+    st.markdown('<div class="sidebar-section-label">辅助工具</div>', unsafe_allow_html=True)
+    _group2 = [
+        ("popularity","高校热度"),
+        ("material", "学习资料"),
+        ("suggest",  "提建议"),
+    ]
+    for p, label in _group2:
+        if current_page == p:
+            st.markdown(f'<div class="nav-item nav-item-active" data-nav="{p}"><span class="nav-dot"></span>{label}</div>', unsafe_allow_html=True)
+        else:
+            if st.button(label, key=f"nav_{p}", use_container_width=True):
+                st.session_state.page = p
+                st.rerun()
 
-    with st.container(border=True):
-        st.markdown("### 📅 打卡督学")
-        st.caption("每日打卡 · 学习计划 · 学习日记 · 番茄计时")
-        if st.button("进入打卡督学", key="hub_checkin", use_container_width=True):
-            st.session_state.page = "checkin"
-            st.rerun()
+    st.markdown('<div class="sidebar-divider"></div>', unsafe_allow_html=True)
 
-    # （专业知识库入口已移至独立模块，暂不显示）
-    # with st.container(border=True):
-    #     st.markdown("### 📚 专业知识库")
-    #     st.caption("上传资料 · OCR识别 · 错题本 · 复习本 · AI出题")
-    #     if st.button("进入知识库", key="hub_knowledge", use_container_width=True):
-    #         st.session_state.page = "knowledge"
-    #         st.rerun()
+    # 用户信息卡片 (升级版)
+    _uid = st.session_state.get("user_id")
+    _study_days = 5  # 默认值
+    if _uid:
+        try:
+            conn = sqlite3.connect(MEMORY_DB)
+            row = conn.execute("SELECT COUNT(DISTINCT date(checkin_time)) FROM checkin_records WHERE user_id=?", (_uid,)).fetchone()
+            if row and row[0]: _study_days = row[0]
+            conn.close()
+        except Exception:
+            pass
+    st.markdown(f"""
+    <div class="sidebar-user">
+        <div class="sidebar-avatar">{_username[0]}</div>
+        <div class="sidebar-user-info">
+            <span class="sidebar-username">{_username}</span>
+            <span class="sidebar-subtitle">2026 届硕士</span>
+        </div>
+    </div>
+    <div class="sidebar-stats">
+        <span class="sidebar-stat">· <strong>{_study_days}</strong> 天学习</span>
+        <span class="sidebar-stat">· <strong>{_study_days}</strong> 连击</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-    if st.button("🚪 退出登录", use_container_width=True):
+    if st.button("退出登录", key="sidebar_logout", use_container_width=True):
         clear_login_token(st.session_state.get("user_id", 0))
         cookie_manager.delete("auth_token")
         st.session_state.logged_in = False
         st.session_state.user_id = None
         st.session_state.page = "hub"
         st.rerun()
+
+# ==================== 数学问答 ====================
+if st.session_state.page == "main":
+    if st.button("← 返回首页", key="back_hub_math"):
+        st.session_state.page = "hub"
+        st.rerun()
+
+    st.markdown("""
+    <div class="main-title" style="text-align:left;padding:1.2rem 1.8rem;">
+        <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#4f46e5,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow:0 4px 12px rgba(79,70,229,0.3);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+            <div>
+                <h1 style="margin:0;font-size:1.4rem!important;">考研数学助手</h1>
+                <p style="margin:2px 0 0;font-size:0.82rem;opacity:0.75;">110 个知识点 · 智能检索 · AI 精准回答</p>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Layout: Left Panel + Main ──
+    left, main = st.columns([0.22, 0.78], gap="medium")
+
+    with left:
+        # User card
+        st.markdown(f"""
+        <div class="qa-card" style="padding:14px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#a855f7);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;">{st.session_state.get('username','?')[0]}</div>
+                <div>
+                    <div style="font-weight:700;font-size:0.85rem;color:#1e293b;">{st.session_state.get('username','?')}</div>
+                    <div style="font-size:0.7rem;color:#64748b;">2026 届硕士</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # QA Style Selector
+        st.markdown('<p style="font-size:0.78rem;font-weight:700;color:#1e293b;margin:10px 0 6px 0;">回答模式选择</p>', unsafe_allow_html=True)
+        _styles = ["默认", "分步解题", "概念讲解", "错题分析", "纯要点", "一问一答", "纯公式"]
+        _style = st.session_state.get("qa_style", "默认")
+        for s in _styles:
+            if st.button(s, key=f"style_{s}", use_container_width=True,
+                         type="secondary" if _style != s else "primary"):
+                st.session_state.qa_style = s
+                st.rerun()
+
+    with main:
+        # Guide — 蓝色渐变卡片
+        st.markdown("""
+        <div style="background:linear-gradient(135deg,#e0f2fe,#bae6fd);border:1px solid #bae6fd;border-radius:12px;padding:18px 20px;margin-bottom:16px;">
+            <div style="font-size:0.92rem;font-weight:700;color:#0369a1;margin-bottom:10px;">从这里开始</div>
+            <div style="font-size:0.84rem;color:#1e40af;line-height:1.8;">
+                <p style="margin-bottom:8px;">这里收录了 <strong>110 个考研数学核心知识点</strong>，从高数到线代再到概率论，按 2025 年最新发布的考研数学大纲整理好了。问什么，它就去知识库里翻最相关的内容，再让 AI 组织成你能看懂的答案。</p>
+                <p style="margin-bottom:8px;">左边可以选回答风格——想要一步一步推导就选「分步解题」，想搞清楚概念就选「概念讲解」，当然也可以什么都不选，它会自己判断。</p>
+                <p style="margin-bottom:8px;">如果想要自己测试一下对知识的理解效果，可以试试网页下方的费曼学习法——挑一个你觉得已经掌握的知识点，试着用最简单的话写出来，提交后 AI 会帮你打分，看看哪里讲得清楚、哪里还需要补一补。分数和记录都会留下来，回头能翻。</p>
+                <p>问完问题之后，AI 也会顺便帮你记着哪些知识点还不熟，自动存到「复习挑战」里，下次打开就能直接练，不用自己惦记。</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # QA Input
+        st.markdown("### 智能回答")
+        _upload = st.file_uploader("上传题目截图（可选）", type=["png","jpg","jpeg"], key="qa_upload")
+        _q = st.text_input("输入你的考研问题", placeholder="例如：什么是导数？如何求泰勒展开？",
+                          key="qa_input", label_visibility="collapsed")
+        _ask = st.button("提问", use_container_width=True, type="primary")
+
+        if _ask and _q.strip():
+            with st.spinner("AI 正在思考..."):
+                corpus = load_corpus()
+                docs = search_corpus(_q.strip(), corpus, top_k=3)
+                style = st.session_state.get("qa_style", "默认")
+                style_hint = "" if style == "默认" else f"请用{style}的方式回答。"
+                prompt = f"""{style_hint}你是考研数学辅导专家。请根据以下参考资料回答用户问题。
+
+用户问题: {_q.strip()}
+
+参考资料:
+"""
+                for i, doc in enumerate(docs):
+                    prompt += f"\n[{i+1}] {doc['id']}: {doc['text'][:800]}\n"
+                prompt += "\n请给出准确、有深度的回答。如有公式请用 LaTeX 格式。"
+                answer = call_llm_api(prompt, model="mimo-v2.5", max_tokens=2000)
+            st.markdown("### 回答")
+            st.markdown(f'<div class="qa-card">{answer}</div>', unsafe_allow_html=True)
+            if docs:
+                ref_html = "".join(f'<span class="ref-tag">{d["id"]}</span>' for d in docs)
+                st.markdown(f'<div style="margin-top:8px;">{ref_html}</div>', unsafe_allow_html=True)
+
+        # ── Bottom Tabs ──
+        st.markdown("---")
+        _tabs = st.tabs(["知识库", "复习挑战", "费曼学习法", "记忆系统"])
+
+        with _tabs[0]:
+            corpus = load_corpus()
+            _q_search = st.text_input("搜索知识库", placeholder="输入关键词筛选...", key="kb_search")
+            _filter = st.radio("筛选", ["全部", "数学一专属", "数学三专属"], horizontal=True, key="kb_filter")
+            _filtered = _filter_corpus(corpus, {"全部": "all", "数学一专属": "math1", "数学三专属": "math3"}.get(_filter, "all"))
+            if _q_search:
+                _filtered = [d for d in _filtered if _q_search.lower() in d.get("id","").lower() or _q_search.lower() in d.get("text","").lower()]
+
+            # 简洁标题
+            st.markdown(f"""
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:8px 0;border-bottom:1px solid #e2e8f0;">
+                <span style="font-size:0.88rem;font-weight:600;color:#1e293b;">共 <span style="color:#4f46e5;">{len(_filtered)}</span> 个知识点</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # 分页显示（每页20条）
+            _total = len(_filtered)
+            _per_page = 20
+            _total_pages = max(1, (_total + _per_page - 1) // _per_page)
+            _page = st.number_input("页码", min_value=1, max_value=_total_pages, value=1, key="kb_page")
+            _start = (_page - 1) * _per_page
+            _end = min(_start + _per_page, _total)
+
+            # 知识点列表
+            for doc in _filtered[_start:_end]:
+                doc_id = doc.get("id", "未知")
+                doc_text = doc.get("text", "无内容")
+
+                # 简化文件名：去掉 .md 后缀
+                clean_name = doc_id.replace('.md', '').replace('_', ' ')
+
+                # 卡片：整个横条淡蓝色渐变
+                st.markdown(f"""
+                <div style="background:linear-gradient(135deg,#e0f2fe,#bae6fd);border-radius:12px;padding:16px 18px;margin-bottom:10px;cursor:pointer;border:1px solid #bae6fd;">
+                    <div style="font-size:0.92rem;font-weight:600;color:#0369a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        {clean_name}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # 按钮行（大尺寸）
+                b1, b2, b3 = st.columns([1.5, 1, 1])
+                with b1:
+                    if st.button("展开查看", key=f"view_{doc_id}", use_container_width=True):
+                        st.session_state[f"show_{doc_id}"] = not st.session_state.get(f"show_{doc_id}", False)
+                with b2:
+                    if st.button("出题", key=f"quiz_{doc_id}", use_container_width=True):
+                        prompt = f"请根据以下知识点出一道考研数学题，并给出解答：\n{doc_text[:500]}"
+                        quiz = call_llm_api(prompt, model="mimo-v2.5", max_tokens=600)
+                        st.info(quiz)
+                with b3:
+                    if st.button("概念自测", key=f"concept_{doc_id}", use_container_width=True):
+                        prompt = f"请对这个知识点进行概念自测提问，帮我检验是否真正理解：\n{doc_text[:500]}"
+                        concept = call_llm_api(prompt, model="mimo-v2.5", max_tokens=400)
+                        st.info(concept)
+
+                # 展开的内容区域（更长）
+                if st.session_state.get(f"show_{doc_id}", False):
+                    st.markdown(f"""
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;font-size:0.84rem;color:#475569;line-height:1.75;margin-bottom:16px;max-height:450px;overflow-y:auto;">
+                        {doc_text}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+        with _tabs[1]:
+            st.markdown("""
+            <div style="font-size:0.88rem;font-weight:700;color:#1e293b;margin-bottom:12px;">遗忘曲线复习候选</div>
+            """, unsafe_allow_html=True)
+
+            # Demo review cards following HTML design
+            _review_items = [
+                ("01. 泰勒公式与麦克劳林展开", 45, "泰勒公式用于将函数在某点附近展开为多项式形式。麦克劳林展开是 x=0 处的特例。"),
+                ("06. 矩阵的特征值与特征向量", 62, "特征值与特征向量用于矩阵对角化、二次型标准化。相似对角化条件是考研重点。"),
+                ("12. 拉格朗日中值定理", 38, "拉格朗日中值定理是微分学核心定理之一，连接函数在区间两端的值与区间内某点的导数值。"),
+            ]
+            for name, mem, text in _review_items:
+                _mem_color = "#10b981" if mem >= 60 else ("#f59e0b" if mem >= 40 else "#ef4444")
+                st.markdown(f"""
+                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <span style="font-weight:600;font-size:0.88rem;color:#1e293b;">{name}</span>
+                        <span style="font-size:0.78rem;padding:4px 10px;background:{_mem_color}15;color:{_mem_color};border-radius:20px;font-weight:600;">记忆率 {mem}%</span>
+                    </div>
+                    <div style="font-size:0.82rem;color:#64748b;margin-bottom:10px;max-height:120px;overflow-y:auto;">{text}</div>
+                    <div style="display:flex;gap:8px;">
+                        <button style="flex:1;padding:8px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;font-size:0.8rem;cursor:pointer;color:#64748b;transition:all 0.2s;">掌握</button>
+                        <button style="flex:1;padding:8px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;font-size:0.8rem;cursor:pointer;color:#64748b;transition:all 0.2s;">再练</button>
+                        <button style="flex:1;padding:8px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;font-size:0.8rem;cursor:pointer;color:#64748b;transition:all 0.2s;">出题</button>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            st.markdown("""
+            <div style="padding:10px 14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;font-size:0.82rem;color:#10b981;margin-top:12px;">
+                暂无更多待复习知识点。使用问答后自动添加。
+            </div>
+            """, unsafe_allow_html=True)
+
+        with _tabs[2]:
+            st.markdown("""
+            <div style="font-size:0.88rem;font-weight:700;color:#1e293b;margin-bottom:12px;">费曼学习法</div>
+            <div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:0.82rem;color:#4f46e5;margin-bottom:14px;">
+                选择模式 → 输入题目或上传图片 → 写下你的答案 → AI 评价
+            </div>
+            """, unsafe_allow_html=True)
+            _fm = st.radio("模式", ["概念理解", "解题练习"], horizontal=True, key="feynman_mode")
+            f1, f2 = st.columns(2)
+            with f1:
+                st.markdown('<div style="font-size:0.82rem;font-weight:600;color:#64748b;margin-bottom:4px;">输入题目</div>', unsafe_allow_html=True)
+                _ftopic = st.text_area("题目", placeholder="例如：什么是洛必达法则？\n或：求函数 f(x)=x³-3x+2 的极值", key="feynman_topic", label_visibility="collapsed")
+            with f2:
+                st.markdown('<div style="font-size:0.82rem;font-weight:600;color:#64748b;margin-bottom:4px;">你的答案</div>', unsafe_allow_html=True)
+                _fanswer = st.text_area("答案", placeholder="用自己的话写下答案...\n\n提示：尽量用自己的语言表达，展示你的理解过程。", key="feynman_answer", label_visibility="collapsed", height=200)
+            if st.button("提交答案", use_container_width=True, type="primary"):
+                if _ftopic and _fanswer:
+                    prompt = f"""你是考研辅导专家。请评价学生对以下题目的回答。
+题目: {_ftopic}
+学生答案: {_fanswer}
+请给出总评分(满分20)和分项评价(概念理解/表达能力)，指出不足并鼓励。"""
+                    result = call_llm_api(prompt, model="mimo-v2.5", max_tokens=600)
+                    st.success(result)
+
+        with _tabs[3]:
+            st.markdown("""
+            <div style="font-size:0.88rem;font-weight:700;color:#1e293b;margin-bottom:14px;">知识点掌握情况</div>
+            """, unsafe_allow_html=True)
+            _all = len(load_corpus())
+            _mastered = st.session_state.get("mastered_count", 0)
+            _pct = int(_mastered / max(_all, 1) * 100)
+            st.markdown(f"""
+            <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:6px;">
+                <span style="color:#64748b;">掌握进度</span>
+                <strong style="color:#1e293b;">{_mastered}/{_all} ({_pct}%)</strong>
+            </div>
+            """, unsafe_allow_html=True)
+            st.progress(_pct / 100)
+            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+
+            # Memory cards
+            _sample_cards = [
+                ("mastered", "01. 泰勒公式与麦克劳林展开", "✓12 ✗2"),
+                ("mastered", "02. 定积分的几何与物理应用", "✓8 ✗3"),
+                ("learning", "03. 矩阵的特征值与特征向量", "✓5 ✗6"),
+                ("mastered", "04. 闭区间上连续函数的性质", "✓15 ✗1"),
+                ("learning", "05. 多元函数微分学", "✓3 ✗4"),
+                ("learning", "06. 二重积分计算", "✓2 ✗5"),
+            ]
+            for status, name, stats in _sample_cards:
+                _bg = "#f0fdf4" if status == "mastered" else "#fff7ed"
+                _border = "#22c55e" if status == "mastered" else "#f97316"
+                _color = "#166534" if status == "mastered" else "#c2410c"
+                st.markdown(f"""
+                <div style="padding:10px 14px;margin-bottom:4px;border-radius:8px;font-size:0.82rem;font-weight:500;background:{_bg};color:{_color};border-left:3px solid {_border};">
+                    {name} · {stats}
+                </div>
+                """, unsafe_allow_html=True)
+            st.markdown('<div style="text-align:center;padding:12px;font-size:0.75rem;color:#94a3b8;">... 全部 110 个知识点追踪中</div>', unsafe_allow_html=True)
+
+    st.stop()
+
+# ==================== Hub 主界面 ====================
+if st.session_state.page == "hub":
+
+    # ══════════════════════════════════════
+    # MAIN CONTENT
+    # ══════════════════════════════════════
+
+    # ── Row 1: Hero (2/3) + Metric (1/3) ──
+    h_left, h_right = st.columns([2, 1])
+    with h_left:
+        st.markdown("""
+        <div class="main-title" style="text-align:left;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <h1 style="font-size:1.5rem!important;">2026 年全国统考倒计时</h1>
+                <p>星光不问赶路人，时光不负有心人</p>
+            </div>
+            <div style="background:rgba(255,255,255,0.1);padding:1rem 1.5rem;border-radius:12px;border:1px solid rgba(255,255,255,0.12);text-align:center;">
+                <span style="font-size:2.5rem;font-weight:900;display:block;line-height:1;">190</span>
+                <span style="font-size:0.7rem;letter-spacing:2px;opacity:0.55;">DAYS LEFT</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with h_right:
+        hub_user_id = st.session_state.get("user_id")
+        if hub_user_id:
+            flow_data = get_flow_focus_data(hub_user_id)
+            flow_msg = pick_flow_message(hub_user_id)
+            focus_hours = flow_data["total_hours"]
+            progress_pct = flow_data["progress_pct"]
+            # 进度颜色：绿(≥80%) / 靛(≥50%) / 琥珀(>0%) / 灰(0%)
+            if progress_pct >= 80:
+                bar_color = "#22c55e"; bg_color = "#f0fdf4"
+            elif progress_pct >= 50:
+                bar_color = "#4f46e5"; bg_color = "#eef2ff"
+            elif progress_pct > 0:
+                bar_color = "#f59e0b"; bg_color = "#fffbeb"
+            else:
+                bar_color = "#94a3b8"; bg_color = "#f8fafc"
+            st.markdown(f"""
+            <div class="qa-card" style="text-align:center;">
+                <div style="font-size:0.82rem;font-weight:700;color:#64748b;margin-bottom:6px;">⚡ 今日聚焦心流</div>
+                <div style="font-size:2.2rem;font-weight:800;color:{bar_color};">{focus_hours}
+                    <span style="font-size:0.85rem;color:#64748b;font-weight:400;">小时</span>
+                </div>
+                <div style="display:inline-flex;align-items:center;gap:6px;font-size:0.75rem;padding:4px 12px;background:{bg_color};color:{bar_color};border-radius:20px;font-weight:500;">
+                    <span style="width:6px;height:6px;border-radius:50%;background:{bar_color};"></span> {'已达每日目标 ' + str(progress_pct) + '%' if progress_pct > 0 else '今日尚未开始'}
+                </div>
+                <div style="margin-top:10px;font-size:0.78rem;color:#475569;line-height:1.5;padding:0 4px;">{flow_msg}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="qa-card" style="text-align:center;">
+                <div style="font-size:0.82rem;font-weight:700;color:#64748b;margin-bottom:6px;">⚡ 今日聚焦心流</div>
+                <div style="font-size:2.2rem;font-weight:800;color:#94a3b8;">—
+                    <span style="font-size:0.85rem;color:#64748b;font-weight:400;">小时</span>
+                </div>
+                <div style="display:inline-flex;align-items:center;gap:6px;font-size:0.75rem;padding:4px 12px;background:#f8fafc;color:#94a3b8;border-radius:20px;font-weight:500;">
+                    登录后开始记录
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Row 2: 4 Feature Cards ──
+    fc1, fc2, fc3, fc4 = st.columns(4)
+
+    _card_data = [
+        ("math", "icon-math", """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>""",
+         "数学问答", "110 个知识点 · 智能问答 · 遗忘曲线复习",
+         ["微积分", "线代", "概率"], "main"),
+        ("popularity", "icon-fire", """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>""",
+         "高校热度", "查院校 · 看数据 · 备考参考",
+         ["报录比", "趋势分析"], "popularity"),
+        ("english", "icon-eng", """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="14" y2="11"/></svg>""",
+         "英语专家", "作文批改 · 长难句解析 · 翻译 · 单词记忆",
+         ["作文", "翻译", "单词"], "english"),
+        ("suggest", "icon-fb", """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h5"/></svg>""",
+         "反馈建议", "欢迎提出建议，会及时跟进修改",
+         ["需求", "反馈"], "suggest"),
+    ]
+
+    for col, (key, icon_cls, icon_svg, title, desc, tags, target) in zip(
+        [fc1, fc2, fc3, fc4], _card_data
+    ):
+        with col:
+            tags_html = "".join(f'<span class="card-tag">{t}</span>' for t in tags) if tags else ""
+            st.markdown(f"""
+            <div class="feature-card">
+                <div class="card-icon {icon_cls}">{icon_svg}</div>
+                <div class="card-title">{title}</div>
+                <div class="card-desc">{desc}</div>
+                {f'<div class="card-tags">{tags_html}</div>' if tags_html else ''}
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("进入", key=f"hub_{key}", use_container_width=True):
+                st.session_state.page = target
+                st.rerun()
+
+    # ── Row 3: 2 Wide Cards ──
+    wc1, wc2 = st.columns(2)
+
+    with wc1:
+        st.markdown("""
+        <div class="feature-card" style="display:flex;align-items:center;gap:16px;">
+            <div class="card-icon icon-mat" style="width:48px;height:48px;margin-bottom:0;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+            <div style="flex:1;">
+                <div class="card-title">学习资料生成</div>
+                <div class="card-desc">AI 生成习题册 · 知识点整理 · DOCX 导出</div>
+                <div class="card-tags" style="margin-top:6px;">
+                    <span class="card-tag">习题生成</span><span class="card-tag">模考卷</span><span class="card-tag">DOCX</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("进入", key="hub_material", use_container_width=True):
+            st.session_state.page = "material"
+            st.rerun()
+
+    with wc2:
+        st.markdown("""
+        <div class="feature-card" style="display:flex;align-items:center;gap:16px;">
+            <div class="card-icon icon-ck" style="width:48px;height:48px;margin-bottom:0;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+            <div style="flex:1;">
+                <div class="card-title">打卡督学</div>
+                <div class="card-desc">每日打卡 · 学习计划 · 学习日记 · 番茄计时 · 学习画像</div>
+                <div class="card-tags" style="margin-top:6px;">
+                    <span class="card-tag">打卡</span><span class="card-tag">番茄钟</span><span class="card-tag">日记</span><span class="card-tag">画像</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("进入", key="hub_checkin", use_container_width=True):
+            st.session_state.page = "checkin"
+            st.rerun()
+
     st.stop()
 
 # ==================== 高校热度查询 ====================
 if st.session_state.page == "popularity":
     st.markdown("""
-    <div class="main-title">
-        <h1>🔥 高校热度查询</h1>
-        <p>院校信息与报考热度分析</p>
+    <div class="main-title" style="text-align:left;padding:1.2rem 1.8rem;">
+        <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#db2777,#ec4899);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow:0 4px 12px rgba(219,39,119,0.3);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+            <div>
+                <h1 style="margin:0;font-size:1.4rem!important;">高校热度查询</h1>
+                <p style="margin:2px 0 0;font-size:0.82rem;opacity:0.75;">院校信息与报考热度分析</p>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2889,15 +4056,15 @@ if st.session_state.page == "popularity":
         with col_sch:
             school = st.text_input("🏫 学校名称", placeholder="例如：华东师范大学")
         with col_maj:
-            major = st.text_input("📖 专业名称（可留空）", placeholder="例如：生物学")
-        submitted = st.form_submit_button("🔍 查询热度", use_container_width=True, type="primary")
+            major = st.text_input("专业名称（可留空）", placeholder="例如：生物学")
+        submitted = st.form_submit_button("查询热度", use_container_width=True, type="primary")
 
     if "_kaoyan_cache" not in st.session_state:
         st.session_state._kaoyan_cache = {}
 
     if submitted and school:
         cache_key = f"{school.strip()}|{major.strip()}"
-        with st.spinner("🔍 正在分析院校热度（数据 + 媒体双引擎）..."):
+        with st.spinner("正在分析院校热度（数据 + 媒体双引擎）..."):
             try:
                 raw = kaoyan_predict.predict(school, major)
                 data = kaoyan_predict.normalize_for_ui(raw)
@@ -2921,15 +4088,15 @@ if st.session_state.page == "popularity":
 
         col_d, col_m = st.columns(2)
         with col_d:
-            st.metric("📊 数据热度", f"{data['dataHeat']}/100")
+            st.metric("数据热度", f"{data['dataHeat']}/100")
         with col_m:
             st.metric("📱 媒体热度", f"{data['mediaHeat']}/100")
 
-        st.caption(f"📡 {data['dataSource']}  |  🎯 置信度 {data['confidence']}%  |  📈 趋势 {data['trend']}")
+        st.caption(f"📡 {data['dataSource']}  |  🎯 置信度 {data['confidence']}%  |  趋势 {data['trend']}")
         st.markdown('</div>', unsafe_allow_html=True)
 
         if data.get("admissionHistory"):
-            st.markdown("### 📊 录取历史")
+            st.markdown("### 录取历史")
             rows = []
             for h in data["admissionHistory"]:
                 rows.append({
@@ -2952,7 +4119,7 @@ if st.session_state.page == "popularity":
             st.metric("预计复试线", f"{pred.get('estimatedCutScore', '?')}分")
 
         if data.get("examSubjects"):
-            with st.expander("📚 考试科目"):
+            with st.expander("考试科目"):
                 for s in data["examSubjects"]:
                     st.markdown(f"- **{s['code']}** {s['name']}（{s['type']}）")
 
@@ -2983,7 +4150,7 @@ if st.session_state.page == "popularity":
                     st.markdown(f"- **推免**：{si['pushRatioDesc']}")
 
         if data.get("notes"):
-            with st.expander("📝 备注"):
+            with st.expander("备注"):
                 for n in data["notes"]:
                     st.markdown(f"- {n}")
 
@@ -2995,7 +4162,7 @@ if st.session_state.page == "popularity":
         profile = get_user_profile(uid)
 
         if not profile:
-            st.info("📋 请先在「打卡督学 → 学习画像」中填写个人信息，以获取个性化报考建议。")
+            st.info("请先在「打卡督学 → 学习画像」中填写个人信息，以获取个性化报考建议。")
         else:
             summary_parts = []
             if profile.get("undergraduate_level"):
@@ -3008,7 +4175,7 @@ if st.session_state.page == "popularity":
                 st.caption("当前画像：" + " · ".join(summary_parts))
 
         # 生成建议
-        if st.button("🔄 生成/刷新个人建议", use_container_width=True, key="gen_rec"):
+        if st.button("生成/刷新个人建议", use_container_width=True, key="gen_rec"):
             if not profile:
                 st.info("请先填写个人画像")
             else:
@@ -3040,13 +4207,18 @@ if st.session_state.page == "material":
         st.session_state.page = "hub"
         st.rerun()
     st.markdown("""
-    <div class="main-title">
-        <h1>📚 学习资料</h1>
-        <p>AI 生成习题册 · 知识点整理 · 备考资料</p>
+    <div class="main-title" style="text-align:left;padding:1.2rem 1.8rem;">
+        <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#ca8a04,#eab308);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow:0 4px 12px rgba(202,138,4,0.3);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+            <div>
+                <h1 style="margin:0;font-size:1.4rem!important;">学习资料生成</h1>
+                <p style="margin:2px 0 0;font-size:0.82rem;opacity:0.75;">AI 生成习题册 · 知识点整理 · 备考资料</p>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    tab_math, tab_english = st.tabs(["📐 数学资料", "📖 英语资料"])
+    tab_math, tab_english = st.tabs(["数学资料", "英语资料"])
 
     # ── 数学资料 ──
     with tab_math:
@@ -3106,7 +4278,7 @@ if st.session_state.page == "material":
                             kw = user_requirement.replace("帮我", "").replace("生成", "").replace("一份", "").strip()[:20]
                             file_name = f"{kw}资料.docx" if kw else "考研数学资料.docx"
 
-                        st.success(f"✅ 生成完成！共 {len(result_text)} 字")
+                        st.success(f"生成完成！共 {len(result_text)} 字")
                         st.download_button(
                             label="📥 下载 docx",
                             data=docx_bytes,
@@ -3177,7 +4349,7 @@ if st.session_state.page == "material":
 
                         file_name = f"考研英语_{selected_eng_category}.docx"
 
-                        st.success(f"✅ 生成完成！共 {len(result_text)} 字")
+                        st.success(f"生成完成！共 {len(result_text)} 字")
                         st.download_button(
                             label="📥 下载 docx",
                             data=docx_bytes,
@@ -3199,7 +4371,7 @@ if st.session_state.page == "suggest":
         st.rerun()
     st.markdown("""
     <div class="main-title">
-        <h1>💬 提建议</h1>
+        <h1>提建议</h1>
         <p>有什么想法？尽管说——</p>
     </div>
     """, unsafe_allow_html=True)
@@ -3214,7 +4386,7 @@ if st.session_state.page == "suggest":
                         (st.session_state.get("username", ""), content.strip()))
             conn.commit()
             conn.close()
-            st.success("✅ 收到！")
+            st.success("收到！")
             log_visit("提建议", content[:50])
 
     st.stop()
@@ -3225,14 +4397,19 @@ if st.session_state.page == "english":
         st.session_state.page = "hub"
         st.rerun()
     st.markdown("""
-    <div class="main-title">
-        <h1>📖 考研英语专家</h1>
-        <p>作文批改 · 长难句解析 · 翻译练习 · 单词记忆</p>
+    <div class="main-title" style="text-align:left;padding:1.2rem 1.8rem;">
+        <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#059669,#10b981);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow:0 4px 12px rgba(5,150,105,0.3);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="14" y2="11"/></svg></div>
+            <div>
+                <h1 style="margin:0;font-size:1.4rem!important;">考研英语专家</h1>
+                <p style="margin:2px 0 0;font-size:0.82rem;opacity:0.75;">作文批改 · 长难句解析 · 翻译练习 · 单词记忆</p>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
     tab_essay, tab_sentence, tab_translate, tab_vocab = st.tabs([
-        "✍️ 作文批改", "🔍 长难句解析", "🌐 翻译与新题型", "📝 单词记忆"
+        "作文批改", "长难句解析", "翻译与新题型", "单词记忆"
     ])
 
     # ── 作文批改 ──
@@ -3257,7 +4434,7 @@ if st.session_state.page == "english":
                 pass
 
         if essay_topics_data:
-            with st.expander("📚 历年真题 (2016-2025)", expanded=False):
+            with st.expander("历年真题 (2016-2025)", expanded=False):
                 years = sorted([y for y in essay_topics_data.get(exam_type, {}).keys() if int(y) >= 2016], reverse=True)
                 if years:
                     selected_year = st.selectbox("选择年份", years, key="essay_year")
@@ -3280,7 +4457,7 @@ if st.session_state.page == "english":
                     else:
                         st.warning(f"该年份暂未收录截图")
                     
-                    if st.button("📋 使用此题目", key="use_topic"):
+                    if st.button("使用此题目", key="use_topic"):
                         st.session_state._essay_topic = f"请参考上方 {selected_year} 年 {exam_type} {part_label}图片"
                         st.rerun()
 
@@ -3288,12 +4465,12 @@ if st.session_state.page == "english":
             placeholder="例如：Write a letter to... / The chart shows...")
 
         # 图片上传 → OCR 识别
-        uploaded_img = st.file_uploader("📷 上传手写作文照片（选填）", type=["png", "jpg", "jpeg"], key="essay_img")
+        uploaded_img = st.file_uploader("上传手写作文照片（选填）", type=["png", "jpg", "jpeg"], key="essay_img")
         ocr_text = st.session_state.get("_essay_ocr_text", "")
 
         if uploaded_img is not None:
             img_data = base64.b64encode(uploaded_img.getvalue()).decode()
-            if st.button("🔍 识别照片文字", use_container_width=True):
+            if st.button("识别照片文字", use_container_width=True):
                 with st.spinner("OCR 识别中..."):
                     try:
                         ocr_prompt = "请识别这张照片中的英语作文内容，只输出英文文本，保持原文格式和段落分隔。"
@@ -3316,13 +4493,13 @@ if st.session_state.page == "english":
 
         # OCR 结果可编辑区域
         if ocr_text:
-            st.info("📋 以下是 OCR 识别结果，请修正识别错误后点击「确认并批改」")
+            st.info("以下是 OCR 识别结果，请修正识别错误后点击「确认并批改」")
             edited_text = st.text_area("识别结果（可编辑）", value=ocr_text, height=250, key="essay_ocr_edit")
             col_confirm, col_redo = st.columns([3, 1])
             with col_confirm:
-                confirm_ocr = st.button("✅ 确认并批改", use_container_width=True, type="primary", key="essay_confirm")
+                confirm_ocr = st.button("确认并批改", use_container_width=True, type="primary", key="essay_confirm")
             with col_redo:
-                if st.button("🔄 重新识别", key="essay_redo"):
+                if st.button("重新识别", key="essay_redo"):
                     st.session_state._essay_ocr_text = ""
                     st.rerun()
         else:
@@ -3612,9 +4789,14 @@ if st.session_state.page == "checkin":
         st.session_state.page = "hub"
         st.rerun()
     st.markdown("""
-    <div class="main-title">
-        <h1>📅 打卡与督学</h1>
-        <p>每日打卡 · 学习计划 · 学习日记 · 番茄计时</p>
+    <div class="main-title" style="text-align:left;padding:1.2rem 1.8rem;">
+        <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow:0 4px 12px rgba(22,163,74,0.3);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+            <div>
+                <h1 style="margin:0;font-size:1.4rem!important;">打卡与督学</h1>
+                <p style="margin:2px 0 0;font-size:0.82rem;opacity:0.75;">每日打卡 · 学习计划 · 学习日记 · 番茄计时</p>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -3645,7 +4827,7 @@ if st.session_state.page == "checkin":
         else:
             st.info(msg)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 每日打卡", "🌙 学习日记", "📋 学习计划", "⏱️ 番茄计时", "📋 学习画像"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["每日打卡", "🌙 学习日记", "学习计划", "番茄计时", "学习画像"])
 
     # ── 每日打卡 ──
     with tab1:
@@ -3749,7 +4931,7 @@ if st.session_state.page == "checkin":
 
         # ── 学习足迹（日记+计划穿插） ──
         st.markdown("---")
-        st.subheader("📖 学习足迹")
+        st.subheader("学习足迹")
         
         timeline = get_timeline(checkin_user_id, days=14)
         if timeline:
@@ -3758,20 +4940,20 @@ if st.session_state.page == "checkin":
                 item_date = str(item["date"] or "")
                 if item_date != current_date:
                     current_date = item_date
-                    st.markdown(f"**📅 {item_date}**")
+                    st.markdown(f"**{item_date}**")
                 
                 if item["type"] == "diary":
                     content = str(item["content"] or "")
                     st.markdown(f"🌙 {content}")
                 elif item["type"] == "plan_create":
                     content = str(item["content"] or "")
-                    st.markdown(f"📋 {content}")
+                    st.markdown(f"{content}")
         else:
             st.info("还没有记录，开始你的第一次打卡吧！")
 
     # ── 学习计划 ──
     with tab3:
-        st.subheader("📋 学习计划")
+        st.subheader("学习计划")
 
         # 获取用户画像
         profile = get_user_profile(checkin_user_id)
@@ -3797,30 +4979,30 @@ if st.session_state.page == "checkin":
 
         # 阶段说明卡片
         st.markdown(f"""
-        <div style="background:#f8f9fa; border-radius:12px; padding:clamp(12px,2vw,20px); margin-bottom:20px; border-left:4px solid #d77757;">
-            <h3 style="margin:0 0 12px 0; color:#333;">📊 当前阶段：{current_phase}</h3>
+        <div style="background:var(--bg-elevated, #f8fafc); border-radius:12px; padding:clamp(12px,2vw,20px); margin-bottom:20px; border:1px solid var(--border, #e2e8f0);">
+            <h3 style="margin:0 0 12px 0; color:var(--text-main, #1e293b);">当前阶段：{current_phase}</h3>
             <table style="width:100%; border-collapse:collapse; font-size:clamp(12px,1.5vw,14px);">
-                <tr style="background:#d77757; color:#fff;">
+                <tr style="background:#4f46e5; color:#fff;">
                     <th style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px); text-align:left;">阶段</th>
                     <th style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px); text-align:left;">时间</th>
                     <th style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px); text-align:left;">核心任务</th>
                 </tr>
-                <tr style="background:{'#fff8f0' if current_phase=='基础阶段' else '#fff'}">
+                <tr style="background:{'#eef2ff' if current_phase=='基础阶段' else '#fff'}">
                     <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">基础阶段</td>
                     <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">3-6月</td>
                     <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">全面打基础、吃透教材和基础题</td>
                 </tr>
-                <tr style="background:{'#fff8f0' if current_phase=='强化阶段' else '#f5f5f5'}">
+                <tr style="background:{'#eef2ff' if current_phase=='强化阶段' else '#f8fafc'}">
                     <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">强化阶段</td>
                     <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">7-9月</td>
                     <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">专项突破、大量刷题、建立做题体系</td>
                 </tr>
-                <tr style="background:{'#fff8f0' if current_phase=='提升阶段' else '#fff'}">
+                <tr style="background:{'#eef2ff' if current_phase=='提升阶段' else '#fff'}">
                     <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">提升阶段</td>
                     <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">10-11月</td>
                     <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">真题实战、查漏补缺、模考检验</td>
                 </tr>
-                <tr style="background:{'#fff8f0' if current_phase=='冲刺阶段' else '#f5f5f5'}">
+                <tr style="background:{'#eef2ff' if current_phase=='冲刺阶段' else '#f8fafc'}">
                     <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">冲刺阶段</td>
                     <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">12月</td>
                     <td style="padding:clamp(4px,1vw,8px) clamp(6px,1.5vw,12px);">高频考点押题、心理调整、保持手感</td>
@@ -3887,7 +5069,7 @@ if st.session_state.page == "checkin":
         # 显示生成的计划
         if st.session_state.get("_plan_result"):
             st.markdown("---")
-            st.markdown(f"### 📋 学习计划 - {st.session_state._plan_phase}")
+            st.markdown(f"### 学习计划 - {st.session_state._plan_phase}")
             st.markdown(st.session_state._plan_result)
             if st.button("💾 保存此计划"):
                 save_checkin_plan(
@@ -3903,7 +5085,7 @@ if st.session_state.page == "checkin":
         plans = get_checkin_plans(checkin_user_id)
         if plans:
             st.markdown("---")
-            st.subheader("📋 已保存的计划")
+            st.subheader("已保存的计划")
             for plan in plans:
                 with st.expander(f"{plan['plan_name']} - {plan['target_date']}"):
                     st.markdown(plan["tasks"] or "")
@@ -3982,7 +5164,7 @@ if st.session_state.page == "checkin":
 
     # ── 学习画像（问卷建档） ──
     with tab5:
-        st.subheader("📋 学习画像问卷")
+        st.subheader("学习画像问卷")
         st.info("填写以下信息，系统会为你生成更精准的学习计划。")
         
         existing_profile = get_user_profile(checkin_user_id)
@@ -4016,12 +5198,12 @@ if st.session_state.page == "checkin":
                 save_profile_field(checkin_user_id, "strong_subjects", json.dumps(strong, ensure_ascii=False))
                 save_profile_field(checkin_user_id, "weak_subjects", json.dumps(weak, ensure_ascii=False))
                 save_profile_field(checkin_user_id, "anxiety_level", anxiety)
-                st.success("✅ 画像已保存！生成学习计划时会自动参考。")
+                st.success("画像已保存！生成学习计划时会自动参考。")
                 st.rerun()
 
         # 显示当前画像
         st.markdown("---")
-        st.subheader("📋 当前画像")
+        st.subheader("当前画像")
         if existing_profile:
             st.markdown(f"**目标院校**：{_display_target_schools(existing_profile)}")
             st.markdown(f"**目标专业**：{existing_profile.get('target_major') or '未设置'}")
@@ -4044,7 +5226,7 @@ experience = load_agent_experience()
 stats = get_memory_stats()
 add_thinking(f"用户 {st.session_state.get('username','?')} 登录")
 
-# 返回首页按钮
+# ← 返回首页按钮
 if st.button("← 返回首页", key="back_hub"):
     st.session_state.page = "hub"
     st.rerun()
@@ -4052,7 +5234,7 @@ if st.button("← 返回首页", key="back_hub"):
 # 顶部标题
 st.markdown("""
 <div class="main-title">
-    <h1>📚 考研学习助手</h1>
+    <h1>考研学习助手</h1>
     <p>基于本地知识库的智能问答系统 | 支持自学习、遗忘曲线、经验积累</p>
 </div>
 """, unsafe_allow_html=True)
@@ -4094,10 +5276,10 @@ with left_col:
 
     # 系统状态
     st.markdown("### ⚙️ 系统状态")
-    st.markdown(f"📁 {len(corpus)} 个文档 · 🧠 {stats['total']} 知识点")
+    st.markdown(f"📁 {len(corpus)} 个文档 · {stats['total']} 知识点")
     col_r1, col_r2 = st.columns([1, 1])
     with col_r1:
-        if st.button("🔄 刷新知识库", use_container_width=True):
+        if st.button("刷新知识库", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
     with col_r2:
@@ -4111,12 +5293,12 @@ with mid_col:
         st.markdown("本系统内置 **110 个考研数学核心知识点**，覆盖高等数学、线性代数、概率论三大模块，内容对齐 2025 年考试大纲。")
         st.markdown("**🧭 智能路由** — 数学问题检索知识库，英语/政治问题由 AI 直接回答。")
         st.markdown("**🎯 回答方式** — 侧边栏可选择 AI 的输出风格：分步解题、概念讲解、错题分析，以及纯要点、问答、纯公式等格式。")
-        st.markdown("**📊 记忆系统** — 自动追踪每个知识点的掌握程度，根据遗忘曲线推送复习内容。")
+        st.markdown("**记忆系统** — 自动追踪每个知识点的掌握程度，根据遗忘曲线推送复习内容。")
 
-    st.markdown("### 💬 智能问答")
+    st.markdown("### 智能问答")
     with st.form("qa_form", clear_on_submit=False):
-        query = st.text_input("🔍 输入你的考研问题", placeholder="例如：什么是导数？", key="query_input")
-        uploaded_img = st.file_uploader("📷 题目截图", type=["png","jpg","jpeg"], label_visibility="collapsed")
+        query = st.text_input("输入你的考研问题", placeholder="例如：什么是导数？", key="query_input")
+        uploaded_img = st.file_uploader("题目截图", type=["png","jpg","jpeg"], label_visibility="collapsed")
         submitted = st.form_submit_button("提问", use_container_width=True)
 
     img_data = None
@@ -4134,7 +5316,7 @@ with mid_col:
         st.markdown('<div class="qa-card">', unsafe_allow_html=True)
         st.markdown("### 💡 回答")
         thinking_placeholder = st.empty()
-        thinking_placeholder.markdown("🧠 <span style='color:#d77757;font-weight:600;'>AI 正在思考...</span>", unsafe_allow_html=True)
+        thinking_placeholder.markdown("<span style='color:#4f46e5;font-weight:600;'>AI 正在思考...</span>", unsafe_allow_html=True)
 
         raw_full = ""
         output = None
@@ -4188,7 +5370,7 @@ with mid_col:
 
         # 参考来源
         if results:
-            st.markdown("### 📋 使用的参考资料")
+            st.markdown("### 使用的参考资料")
             ref_html = ""
             for r in results:
                 ref_html += f"<span class='ref-tag'>📄 {_clean_knowledge_name(r['id'])} ×{r['score']}</span>"
@@ -4211,7 +5393,7 @@ with mid_col:
         st.markdown('</div>', unsafe_allow_html=True)
         last_results = st.session_state.get("_last_results", [])
         if last_results:
-            st.markdown("### 📋 使用的参考资料")
+            st.markdown("### 使用的参考资料")
             ref_html = ""
             for r in last_results:
                 ref_html += f"<span class='ref-tag'>📄 {_clean_knowledge_name(r['id'])} ×{r['score']}</span>"
@@ -4229,7 +5411,7 @@ with mid_col:
     # 出题结果显示
     btn_quiz = st.session_state.pop("_btn_quiz", None)
     if btn_quiz and btn_quiz.get("success"):
-        st.markdown("#### 📝 练习题")
+        st.markdown("#### 练习题")
         render_qa_cards(btn_quiz['questions'], columns=2, typing=True)
 
     last_output = st.session_state.get("_last_output")
@@ -4242,7 +5424,7 @@ with mid_col:
                 progress_bar = st.progress(0, text="🎲 开始生成题目...")
                 progress_bar.progress(30, text="正在分析知识点...")
                 st.session_state._btn_quiz = generate_review_questions([{"knowledge_id": m} for m in matched[:2]])
-                progress_bar.progress(100, text="✅ 题目生成完成！")
+                progress_bar.progress(100, text="题目生成完成！")
                 st.rerun()
             else:
                 st.info("未匹配到相关知识点")
@@ -4250,7 +5432,7 @@ with mid_col:
         st.markdown("### 这个回答对你有帮助吗？")
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("✅ 掌握了", use_container_width=True):
+            if st.button("掌握了", use_container_width=True):
                 last_results = st.session_state.get("_last_results", [])
                 last_query = st.session_state.get("_last_query", "")
                 if last_results:
@@ -4266,7 +5448,7 @@ with mid_col:
                 st.session_state._action_msg = "已记录为掌握！"
                 st.rerun()
         with col2:
-            if st.button("📚 加入复习库", use_container_width=True):
+            if st.button("加入复习库", use_container_width=True):
                 last_query = st.session_state.get("_last_query", "")
                 matched = st.session_state.get("_matched_knowledge") or smart_match_knowledge(last_query)
                 if matched:
@@ -4292,7 +5474,7 @@ st.markdown("---")
 # 考纲分类选择
 if "math_type" not in st.session_state:
     st.session_state.math_type = "全部"
-math_type = st.radio("📋 考纲分类", ["全部", "数学一专属", "数学三专属"], horizontal=True, key="math_type_radio", label_visibility="collapsed")
+math_type = st.radio("考纲分类", ["全部", "数学一专属", "数学三专属"], horizontal=True, key="math_type_radio", label_visibility="collapsed")
 st.session_state.math_type = math_type
 
 filtered_corpus = _filter_corpus(corpus, math_type)
@@ -4300,12 +5482,12 @@ filtered_corpus_ids = {d["id"] for d in filtered_corpus}
 total_all = len(corpus)
 total_filtered = len(filtered_corpus)
 
-tab1, tab2, tab4, tab3 = st.tabs(["📖 知识库", "📚 复习挑战", "🎓 费曼学习法", "🧠 记忆系统"])
+tab1, tab2, tab4, tab3 = st.tabs(["知识库", "复习挑战", "🎓 费曼学习法", "记忆系统"])
 
 with tab1:
     label = f"（{math_type}）" if math_type != "全部" else ""
     st.subheader(f"知识库{label} {total_filtered}/{total_all} 个文档")
-    search_kw = st.text_input("🔍 搜索知识库", label_visibility="collapsed", placeholder="搜索...")
+    search_kw = st.text_input("搜索知识库", label_visibility="collapsed", placeholder="搜索...")
     if search_kw:
         results = search_corpus(search_kw, filtered_corpus, top_k=20)
         for r in results:
@@ -4325,9 +5507,9 @@ with tab1:
                 if st.session_state.get("_kb_qid") == kid:
                     quiz = st.session_state.get("_kb_quiz")
                     if st.session_state.get("_kb_result"):
-                        st.markdown("### 📊 评分结果")
+                        st.markdown("### 评分结果")
                         st.markdown(_escape_md(_collapse_math(_fix_latex(st.session_state._kb_result))))
-                        if st.button("✅ 关闭", key=f"kb_s_close_res_{kid}", use_container_width=True):
+                        if st.button("关闭", key=f"kb_s_close_res_{kid}", use_container_width=True):
                             st.session_state.pop("_kb_result", None)
                             st.session_state.pop("_kb_qid", None)
                             st.rerun()
@@ -4335,7 +5517,7 @@ with tab1:
                         render_qa_cards(quiz['questions'], columns=1, typing=True)
                         ans = st.text_area("你的解法", key=f"kb_s_ans_{kid}", height=150,
                             placeholder="写下你的解题思路和答案...")
-                        if st.button("📝 提交自测", key=f"kb_s_sub_{kid}", use_container_width=True):
+                        if st.button("提交自测", key=f"kb_s_sub_{kid}", use_container_width=True):
                             if ans.strip():
                                 with st.spinner("AI 正在评分..."):
                                     try:
@@ -4364,17 +5546,17 @@ with tab1:
                 if st.session_state.get("_kb_concept_qid") == kid:
                     concept_quiz = st.session_state.get("_kb_concept_quiz")
                     if st.session_state.get("_kb_concept_result"):
-                        st.markdown("### 📊 评分结果")
+                        st.markdown("### 评分结果")
                         st.markdown(_escape_md(_collapse_math(_fix_latex(st.session_state._kb_concept_result))))
-                        if st.button("✅ 关闭", key=f"kb_s_close_cres_{kid}", use_container_width=True):
+                        if st.button("关闭", key=f"kb_s_close_cres_{kid}", use_container_width=True):
                             st.session_state.pop("_kb_concept_result", None)
                             st.session_state.pop("_kb_concept_qid", None)
                             st.rerun()
                     elif not st.session_state.get("_kb_concept_result"):
                         concept_quiz_text = f"概念自测：「{_clean_knowledge_name(kid)}」"
-                        st.info(f"📝 {concept_quiz_text}")
+                        st.info(f"{concept_quiz_text}")
                         ans = st.text_area("你的回答", key=f"kb_s_ans_{kid}", height=120)
-                        if st.button("📝 提交自测", key=f"kb_s_cp_sub_{kid}", use_container_width=True):
+                        if st.button("提交自测", key=f"kb_s_cp_sub_{kid}", use_container_width=True):
                             if ans.strip():
                                 with st.spinner("AI 正在评分..."):
                                     try:
@@ -4416,9 +5598,9 @@ with tab1:
                 if st.session_state.get("_kb_qid") == kid:
                     quiz = st.session_state.get("_kb_quiz")
                     if st.session_state.get("_kb_result"):
-                        st.markdown("### 📊 评分结果")
+                        st.markdown("### 评分结果")
                         st.markdown(_escape_md(_collapse_math(_fix_latex(st.session_state._kb_result))))
-                        if st.button("✅ 关闭", key=f"kb_d_close_res_{kid}", use_container_width=True):
+                        if st.button("关闭", key=f"kb_d_close_res_{kid}", use_container_width=True):
                             st.session_state.pop("_kb_result", None)
                             st.session_state.pop("_kb_qid", None)
                             st.rerun()
@@ -4426,7 +5608,7 @@ with tab1:
                         render_qa_cards(quiz['questions'], columns=1, typing=True)
                         ans = st.text_area("你的解法", key=f"kb_d_ans_{kid}", height=150,
                             placeholder="写下你的解题思路和答案...")
-                        if st.button("📝 提交自测", key=f"kb_d_sub_{kid}", use_container_width=True):
+                        if st.button("提交自测", key=f"kb_d_sub_{kid}", use_container_width=True):
                             if ans.strip():
                                 with st.spinner("AI 正在评分..."):
                                     try:
@@ -4455,17 +5637,17 @@ with tab1:
                 if st.session_state.get("_kb_concept_qid") == kid:
                     concept_quiz = st.session_state.get("_kb_concept_quiz")
                     if st.session_state.get("_kb_concept_result"):
-                        st.markdown("### 📊 评分结果")
+                        st.markdown("### 评分结果")
                         st.markdown(_escape_md(_collapse_math(_fix_latex(st.session_state._kb_concept_result))))
-                        if st.button("✅ 关闭", key=f"kb_d_close_cres_{kid}", use_container_width=True):
+                        if st.button("关闭", key=f"kb_d_close_cres_{kid}", use_container_width=True):
                             st.session_state.pop("_kb_concept_result", None)
                             st.session_state.pop("_kb_concept_qid", None)
                             st.rerun()
                     elif not st.session_state.get("_kb_concept_result"):
                         concept_quiz_text = f"概念自测：「{_clean_knowledge_name(kid)}」"
-                        st.info(f"📝 {concept_quiz_text}")
+                        st.info(f"{concept_quiz_text}")
                         ans = st.text_area("你的回答", key=f"kb_d_cp_ans_{kid}", height=120)
-                        if st.button("📝 提交自测", key=f"kb_d_cp_sub_{kid}", use_container_width=True):
+                        if st.button("提交自测", key=f"kb_d_cp_sub_{kid}", use_container_width=True):
                             if ans.strip():
                                 with st.spinner("AI 正在评分..."):
                                     try:
@@ -4500,7 +5682,7 @@ with tab2:
                 st.markdown(knowledge_text[:1500])
                 c1, c2, c3 = st.columns(3)
                 with c1:
-                    if st.button(f"✅ 掌握", key=f"rev_m_{i}"):
+                    if st.button(f"掌握", key=f"rev_m_{i}"):
                         update_memory(c['knowledge_id'], True)
                         st.rerun()
                 with c2:
@@ -4512,7 +5694,7 @@ with tab2:
                     if st.button(f"🎲 出题", key=gen_key):
                         progress = st.progress(0, text="🎲 生成中...")
                         gen_r = generate_review_questions([{"knowledge_id": c['knowledge_id']}])
-                        progress.progress(100, text="✅ 完成")
+                        progress.progress(100, text="完成")
                         st.session_state._rev_quiz = gen_r
                         st.session_state._rev_quiz_id = i
                         st.rerun()
@@ -4541,12 +5723,12 @@ with tab4:
             placeholder="例如：什么是洛必达法则？\n或：求函数 f(x)=x³-3x+2 的极值",
             key="feynman_question")
     with col_img:
-        st.markdown("**📷 或上传题目图片**")
+        st.markdown("**或上传题目图片**")
         feynman_img = st.file_uploader("上传图片", type=["png", "jpg", "jpeg"], key="feynman_img",
             label_visibility="collapsed")
         if feynman_img is not None:
             img_b64 = base64.b64encode(feynman_img.getvalue()).decode()
-            if st.button("🔍 识别图片文字", key="feynman_ocr", use_container_width=True):
+            if st.button("识别图片文字", key="feynman_ocr", use_container_width=True):
                 with st.spinner("识别中..."):
                     try:
                         ocr_data = {"model": "mimo-v2.5", "messages": [
@@ -4575,7 +5757,7 @@ with tab4:
         key="feynman_answer")
 
     # 提交按钮
-    if st.button("📝 提交答案", key="feynman_submit", use_container_width=True, type="primary"):
+    if st.button("提交答案", key="feynman_submit", use_container_width=True, type="primary"):
         if not feynman_question.strip():
             st.warning("请输入题目内容")
         elif not feynman_answer.strip():
@@ -4628,7 +5810,7 @@ with tab4:
 
                     # 显示结果
                     st.markdown("---")
-                    st.markdown("### 📊 评价结果")
+                    st.markdown("### 评价结果")
                     st.markdown(_escape_md(_collapse_math(_fix_latex(result))))
 
                 except Exception as e:
@@ -4653,7 +5835,7 @@ with tab4:
         st.info("暂无记录，开始你的第一次练习吧！")
 
 with tab3:
-    st.subheader("🧠 知识点掌握情况")
+    st.subheader("知识点掌握情况")
     conn = sqlite3.connect(MEMORY_DB)
     c = conn.cursor()
     c.execute("SELECT knowledge_id, status, times_correct, times_wrong, stability FROM knowledge_mastery WHERE user_id=? ORDER BY last_review DESC", (st.session_state.get("user_id", 1),))
@@ -4672,8 +5854,8 @@ with tab3:
         if len(name) > 30:
             name = name[:27] + "..."
         if r[1] == "掌握":
-            st.markdown(f"<div class='mastered-card'>✅ {name} | ✓{r[2]} ✗{r[3]}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='mastered-card'>{name} | ✓{r[2]} ✗{r[3]}</div>", unsafe_allow_html=True)
         elif r[1] == "学习中":
-            st.markdown(f"<div class='learning-card'>🔥 {name} | ✓{r[2]} ✗{r[3]}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='learning-card'>{name} | ✓{r[2]} ✗{r[3]}</div>", unsafe_allow_html=True)
 
 

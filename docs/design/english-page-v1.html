@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英语专家 — 考研学习助手</title>
+<style>
+/* ============================================================
+   Style B: Modern Indigo
+   ============================================================ */
+:root {
+  --bg-base:       #f1f5f9;
+  --bg-surface:    #ffffff;
+  --bg-glass:      rgba(255, 255, 255, 0.72);
+  --bg-elevated:   #f8fafc;
+  --primary:       #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-soft:  #eef2ff;
+  --accent-pink:   #ec4899;
+  --text-main:     #1e293b;
+  --text-sub:      #64748b;
+  --text-muted:    #94a3b8;
+  --border:        #e2e8f0;
+  --success:       #10b981;
+  --success-soft:  #ecfdf5;
+  --learning-bg:   #fff7ed;
+  --mastered-bg:   #f0fdf4;
+  --warning:       #f59e0b;
+  --danger:        #ef4444;
+  --danger-soft:   #fef2f2;
+  --radius-sm:     8px;
+  --radius-md:     12px;
+  --radius-lg:     18px;
+  --shadow-sm:     0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:     0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.05);
+  --shadow-lg:     0 2px 6px rgba(0,0,0,0.06), 0 8px 24px rgba(79,70,229,0.08);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg-base); color: var(--text-main);
+  line-height: 1.6; -webkit-font-smoothing: antialiased;
+}
+.container { max-width: 1100px; margin: 0 auto; padding: 24px 32px; }
+
+/* Header */
+.page-header {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 20px 28px;
+  margin-bottom: 24px; box-shadow: var(--shadow-sm);
+}
+.page-header h1 { font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 4px; }
+.page-header .sub { font-size: 0.85rem; color: var(--text-sub); }
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.82rem; color: var(--primary); text-decoration: none;
+  font-weight: 600; margin-bottom: 8px; cursor: pointer;
+}
+.back-link:hover { text-decoration: underline; }
+
+/* Tabs nav */
+.tab-nav {
+  display: flex; gap: 6px; background: var(--border);
+  padding: 4px; border-radius: 10px; width: fit-content; margin-bottom: 20px;
+}
+.tab-btn {
+  padding: 8px 18px; border-radius: 7px; border: none;
+  background: transparent; font-size: 0.85rem; font-weight: 500;
+  color: var(--text-sub); cursor: pointer; transition: all 0.2s;
+  font-family: inherit;
+}
+.tab-btn.active { background: white; color: var(--primary); box-shadow: var(--shadow-sm); font-weight: 600; }
+.tab-pane { display: none; animation: fadeSlide 0.3s ease; }
+.tab-pane.active { display: block; }
+@keyframes fadeSlide { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Cards */
+.card {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 22px; margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+}
+.card-header {
+  font-size: 0.95rem; font-weight: 700; color: var(--text-main);
+  margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+}
+.card-sub { font-size: 0.85rem; font-weight: 600; color: var(--text-main); margin-bottom: 10px; }
+
+/* Form elements */
+.form-row { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 14px; }
+.form-col { flex: 1; min-width: 200px; }
+.form-label { font-size: 0.8rem; font-weight: 700; color: var(--text-main); margin-bottom: 6px; display: block; }
+.radio-group { display: flex; gap: 6px; }
+.radio-btn {
+  padding: 6px 15px; border-radius: 20px; border: 1px solid var(--border);
+  background: var(--bg-surface); font-size: 0.82rem; cursor: pointer;
+  font-family: inherit; color: var(--text-sub); transition: all 0.2s;
+}
+.radio-btn.active { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); font-weight: 600; }
+input[type="text"], textarea {
+  width: 100%; padding: 10px 14px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 0.86rem; font-family: inherit;
+  color: var(--text-main); background: var(--bg-elevated); resize: vertical;
+}
+input[type="text"]:focus, textarea:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.10);
+}
+.btn-primary {
+  padding: 10px 22px; border: none; background: var(--primary);
+  color: white; border-radius: 24px; font-weight: 600;
+  cursor: pointer; font-size: 0.88rem; font-family: inherit;
+  transition: all 0.2s; white-space: nowrap;
+}
+.btn-primary:hover { background: var(--primary-hover); transform: scale(1.02); }
+.btn-full { width: 100%; }
+.btn-sm {
+  padding: 7px 14px; border: 1px solid var(--border);
+  background: var(--bg-surface); color: var(--text-sub);
+  border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 500;
+  cursor: pointer; font-family: inherit; transition: all 0.2s;
+}
+.btn-sm:hover { background: var(--bg-elevated); color: var(--primary); border-color: var(--primary); }
+.danger-btn { color: var(--danger); border-color: var(--danger-soft); }
+.danger-btn:hover { background: var(--danger-soft); color: var(--danger); }
+
+/* Expander */
+.expander {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-md); margin-bottom: 14px; overflow: hidden;
+}
+.expander-header {
+  padding: 12px 16px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+  display: flex; justify-content: space-between; align-items: center;
+  color: var(--text-sub); user-select: none; background: var(--bg-elevated);
+}
+.expander-body { display: none; padding: 14px 16px; font-size: 0.82rem; color: var(--text-sub); }
+.expander-body.show { display: block; }
+.expander-body img { max-width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border); margin: 8px 0; }
+
+/* Topic image placeholder */
+.topic-img-placeholder {
+  background: var(--bg-elevated); border: 2px dashed var(--border);
+  border-radius: var(--radius-sm); padding: 40px 20px; text-align: center;
+  font-size: 0.82rem; color: var(--text-muted); margin: 10px 0;
+}
+
+/* OCR area */
+.ocr-area {
+  background: #eff6ff; border: 1px solid #bfdbfe;
+  border-radius: var(--radius-md); padding: 14px; margin: 12px 0;
+  font-size: 0.82rem; color: var(--primary);
+}
+.ocr-area .ocr-label { font-weight: 600; margin-bottom: 8px; display: block; }
+
+/* Score result card */
+.score-card {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 18px; margin-top: 16px;
+  line-height: 1.75; font-size: 0.86rem;
+}
+.score-card .score-big {
+  font-size: 1.5rem; font-weight: 800; color: var(--primary);
+}
+.score-card .tier-badge {
+  display: inline-block; padding: 4px 12px; border-radius: 20px;
+  background: var(--primary-soft); color: var(--primary);
+  font-size: 0.78rem; font-weight: 600; margin-left: 10px;
+}
+.error-line { color: var(--danger); }
+.fixed-line { color: var(--success); }
+.upgrade-line { color: var(--primary); }
+
+/* Before/After comparison */
+.comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+.compare-pane {
+  padding: 14px; border-radius: var(--radius-sm);
+  font-size: 0.82rem; line-height: 1.65;
+}
+.compare-pane.before { background: var(--danger-soft); border: 1px solid #fecaca; }
+.compare-pane.after { background: var(--success-soft); border: 1px solid #a7f3d0; }
+
+/* Sentence parsing result */
+.parse-block {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 8px;
+  font-size: 0.84rem;
+}
+.parse-block strong { color: var(--primary); }
+
+/* Vocab result */
+.vocab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.vocab-block {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px; font-size: 0.82rem;
+}
+
+/* File upload */
+.file-upload {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border: 1px dashed var(--border);
+  border-radius: var(--radius-sm); font-size: 0.82rem; margin: 8px 0;
+  color: var(--text-sub);
+}
+.file-upload input[type="file"] { display: none; }
+.file-upload label { cursor: pointer; color: var(--primary); font-weight: 600; }
+.file-upload label:hover { text-decoration: underline; }
+
+/* Info / Warning tips */
+.info-tip { padding: 10px 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-sm); font-size: 0.82rem; color: var(--primary); margin: 8px 0; }
+.warning-tip { padding: 10px 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-sm); font-size: 0.82rem; color: #92400e; margin: 8px 0; }
+.success-tip { padding: 10px 14px; background: var(--success-soft); border: 1px solid #a7f3d0; border-radius: var(--radius-sm); font-size: 0.82rem; color: var(--success); margin: 8px 0; }
+
+/* Score result visibility */
+.score-result { display: none; }
+.score-result.show { display: block; }
+
+select.custom-select {
+  padding: 8px 12px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 0.82rem;
+  font-family: inherit; color: var(--text-main); background: var(--bg-surface);
+  cursor: pointer; min-width: 140px;
+}
+
+@media (max-width: 768px) {
+  .container { padding: 16px; }
+  .form-row { flex-direction: column; gap: 10px; }
+  .comparison-grid, .vocab-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ========== Header ========== -->
+  <header class="page-header">
+    <a class="back-link" onclick="alert('返回首页')">← 返回首页</a>
+    <h1>考研英语专家</h1>
+    <p class="sub">作文批改 · 长难句解析 · 翻译练习 · 单词记忆</p>
+  </header>
+
+  <!-- ========== Tab Navigation ========== -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('essay', this)">作文批改</button>
+    <button class="tab-btn" onclick="switchTab('sentence', this)">长难句解析</button>
+    <button class="tab-btn" onclick="switchTab('translate', this)">翻译与新题型</button>
+    <button class="tab-btn" onclick="switchTab('vocab', this)">单词记忆</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- TAB 1: 作文批改                           -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div id="tab-essay" class="tab-pane active">
+    <div class="card">
+      <div class="card-header">语法纠错 · 句子升级 · 三维评分</div>
+
+      <!-- Row 1: Exam type + Part type -->
+      <div class="form-row">
+        <div class="form-col">
+          <span class="form-label">考试类型</span>
+          <div class="radio-group" id="exam-type-group">
+            <button class="radio-btn active" onclick="selectRadio(this,'exam-type-group');updateMaxScore();">英语一</button>
+            <button class="radio-btn" onclick="selectRadio(this,'exam-type-group');updateMaxScore();">英语二</button>
+          </div>
+        </div>
+        <div class="form-col">
+          <span class="form-label">Part 类型</span>
+          <div class="radio-group" id="part-type-group">
+            <button class="radio-btn active" onclick="selectRadio(this,'part-type-group');updateMaxScore();">Part A 应用文</button>
+            <button class="radio-btn" onclick="selectRadio(this,'part-type-group');updateMaxScore();">Part B 大作文</button>
+          </div>
+        </div>
+        <div class="form-col" style="display:flex;align-items:flex-end;">
+          <span style="font-size:0.78rem;color:var(--text-sub);">满分：<strong id="max-score-display">10</strong> 分</span>
+        </div>
+      </div>
+
+      <!-- Row 2: 历年真题 expander -->
+      <div class="expander">
+        <div class="expander-header" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('span').innerText=this.nextElementSibling.classList.contains('show')?'▴':'▾'">
+          历年真题 (2016-2025) <span>▾</span>
+        </div>
+        <div class="expander-body" id="past-exam-body">
+          <div class="form-row">
+            <div class="form-col">
+              <span class="form-label">选择年份</span>
+              <select class="custom-select" onchange="showTopicImage(this.value)">
+                <option value="">-- 选择年份 --</option>
+                <option>2025</option><option>2024</option><option>2023</option>
+                <option>2022</option><option>2021</option><option>2020</option>
+                <option>2019</option><option>2018</option><option>2017</option><option>2016</option>
+              </select>
+            </div>
+          </div>
+          <div id="topic-image-area">
+            <div class="topic-img-placeholder" id="topic-img-placeholder">
+              选择年份后显示真题截图<br>
+              <span style="font-size:0.75rem;">（截图存放于 data/英语真题图片/ 目录）</span>
+            </div>
+          </div>
+          <button class="btn-sm" onclick="alert('已使用 2025 年真题题目')">使用此题目</button>
+        </div>
+      </div>
+
+      <!-- Row 3: 作文题目 -->
+      <div style="margin-bottom:12px;">
+        <span class="form-label">作文题目（选填）</span>
+        <input type="text" id="essay-topic" placeholder="例如：Write a letter to... / The chart shows...">
+      </div>
+
+      <!-- Row 4: 手写照片上传 + OCR -->
+      <div class="form-label">上传手写作文照片（选填）</div>
+      <div class="file-upload">
+        <label for="essay-img-upload">选择图片文件</label>
+        <input type="file" id="essay-img-upload" accept="image/png,image/jpeg" onchange="handleEssayImage(this)">
+        <span id="essay-img-name" style="font-size:0.78rem;color:var(--text-muted);">未选择文件</span>
+      </div>
+      <button class="btn-sm" id="ocr-btn" style="display:none;" onclick="simulateOCR()">识别照片文字</button>
+      <div id="ocr-progress" style="display:none;margin:8px 0;font-size:0.8rem;color:var(--primary);">OCR 识别中...</div>
+
+      <!-- OCR result area -->
+      <div class="ocr-area" id="ocr-result-area" style="display:none;">
+        <span class="ocr-label">以下是 OCR 识别结果，请修正识别错误后点击「确认并批改」</span>
+        <textarea id="ocr-edit-text" style="height:200px;margin-top:6px;">Many people thinks that master degree is very important for their future career. However, some people disagree with this opinion because they believe experience is more important than education.</textarea>
+        <div style="display:flex;gap:10px;margin-top:10px;">
+          <button class="btn-primary btn-full" onclick="gradeEssay()">确认并批改</button>
+          <button class="btn-sm danger-btn" onclick="resetOCR()">重新识别</button>
+        </div>
+      </div>
+
+      <!-- Row 5: 作文内容（手动输入，无 OCR 时显示） -->
+      <div id="manual-essay-area">
+        <div class="form-label" style="margin-top:12px;">作文内容</div>
+        <textarea id="essay-manual-text" style="height:200px;" placeholder="粘贴你的英语作文..."></textarea>
+        <button class="btn-primary btn-full" style="margin-top:10px;" onclick="gradeEssay()">批改作文</button>
+      </div>
+
+      <!-- Grade Result -->
+      <div class="score-card score-result" id="essay-score-result">
+        <!-- Dynamically filled -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- TAB 2: 长难句解析                         -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div id="tab-sentence" class="tab-pane">
+    <div class="card">
+      <div class="card-header">主干提取 · 修饰分析 · 翻译</div>
+      <textarea id="sentence-input" style="height:120px;" placeholder="例如: The fact that the defendant had previously been convicted of a similar offense, which was not disclosed to the jury, raises serious questions about the fairness of the trial."></textarea>
+      <button class="btn-primary btn-full" style="margin-top:10px;" onclick="parseSentence()">解析</button>
+
+      <div class="score-result" id="sentence-result">
+        <div class="parse-block">
+          <strong>[主干]</strong> The fact ... raises serious questions
+        </div>
+        <div class="parse-block">
+          <strong>[修饰]</strong> ① that the defendant had previously been convicted of a similar offense — 同位语从句，补充说明 the fact 的具体内容<br>
+          ② which was not disclosed to the jury — 非限制性定语从句，修饰 a similar offense<br>
+          ③ about the fairness of the trial — 介词短语作后置定语，修饰 questions
+        </div>
+        <div class="parse-block">
+          <strong>[逻辑]</strong> 因果关系：被告此前曾被判类似罪行且未告知陪审团这一事实 → 引发了对审判公正性的严重质疑
+        </div>
+        <div class="parse-block">
+          <strong>[翻译]</strong> 被告此前曾因类似罪行被定罪，而这一事实并未向陪审团披露，这引发了对审判公正性的严重质疑。
+        </div>
+        <div class="parse-block">
+          <strong>[语法点]</strong> 同位语从句 (that引导) · 非限制性定语从句 (which引导) · 被动语态 · 介词短语作后置定语
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- TAB 3: 翻译与新题型                       -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div id="tab-translate" class="tab-pane">
+    <div class="card">
+      <div class="card-header">翻译 · 7选5 · 排序 · 小标题匹配</div>
+
+      <span class="form-label">练习类型</span>
+      <div class="radio-group" id="translate-mode-group" style="margin-bottom:16px;">
+        <button class="radio-btn active" onclick="selectRadio(this,'translate-mode-group')">英译中</button>
+        <button class="radio-btn" onclick="selectRadio(this,'translate-mode-group')">中译英</button>
+        <button class="radio-btn" onclick="selectRadio(this,'translate-mode-group')">7选5</button>
+        <button class="radio-btn" onclick="selectRadio(this,'translate-mode-group')">排序题</button>
+        <button class="radio-btn" onclick="selectRadio(this,'translate-mode-group')">小标题匹配</button>
+      </div>
+
+      <textarea id="translate-input" style="height:160px;" placeholder="粘贴需要翻译或练习的文本..."></textarea>
+      <button class="btn-primary btn-full" style="margin-top:10px;" onclick="doTranslate()">开始练习</button>
+
+      <div class="score-result" id="translate-result">
+        <div class="parse-block"><strong>[答案/翻译]</strong> Translation / Answer content here...</div>
+        <div class="parse-block"><strong>[关键词]</strong> Important vocabulary with explanations</div>
+        <div class="parse-block"><strong>[语法]</strong> Relevant grammar structures</div>
+        <div class="parse-block"><strong>[技巧]</strong> Problem-solving techniques used</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- TAB 4: 单词记忆                           -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div id="tab-vocab" class="tab-pane">
+    <div class="card">
+      <div class="card-header">词根词缀 · 联想记忆 · 搭配例句</div>
+
+      <input type="text" id="vocab-input" placeholder="例如：innovation / 考研高频词 / 经济类词汇">
+      <button class="btn-primary btn-full" style="margin-top:10px;" onclick="lookupVocab()">查询</button>
+
+      <div class="score-result" id="vocab-result">
+        <div class="vocab-grid">
+          <div class="vocab-block">
+            <strong style="color:var(--primary);">[词根]</strong><br>
+            in- (进入) + nov (新) + -ation (名词后缀)<br>
+            = 引入新事物 → 创新
+          </div>
+          <div class="vocab-block">
+            <strong style="color:var(--primary);">[联想]</strong><br>
+            novel (新颖的) → innovate (创新) → innovation (创新名词)<br>
+            联想：in(进去) + nova(新星) → 像新星一样闪亮登场 → 创新
+          </div>
+          <div class="vocab-block">
+            <strong style="color:var(--primary);">[同义 / 反义]</strong><br>
+            同义：creativity, invention, novelty<br>
+            反义：convention, tradition, stagnation
+          </div>
+          <div class="vocab-block">
+            <strong style="color:var(--primary);">[搭配]</strong><br>
+            technological innovation 技术创新<br>
+            drive innovation 推动创新<br>
+            innovative approach 创新方法
+          </div>
+        </div>
+        <div class="parse-block" style="margin-top:8px;">
+          <strong style="color:var(--primary);">[例句]</strong><br>
+          Technological innovation has become a key driver of economic growth in the 21st century, reshaping industries from manufacturing to healthcare.<br>
+          <span style="color:var(--text-sub);font-size:0.8rem;">技术创新已成为21世纪经济增长的关键驱动力，重塑了从制造业到医疗保健的各个行业。</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Tab Switching ──
+function switchTab(name, el) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── Radio Button ──
+function selectRadio(btn, groupId) {
+  document.getElementById(groupId).querySelectorAll('.radio-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Max Score Auto-Update ──
+function updateMaxScore() {
+  const examType = document.querySelector('#exam-type-group .radio-btn.active').innerText;
+  const partType = document.querySelector('#part-type-group .radio-btn.active').innerText;
+  let score;
+  if (partType.includes('Part A')) {
+    score = 10;
+  } else {
+    score = examType === '英语一' ? 20 : 15;
+  }
+  document.getElementById('max-score-display').innerText = score;
+}
+
+// ── Topic Image ──
+function showTopicImage(year) {
+  if (!year) return;
+  const area = document.getElementById('topic-img-placeholder');
+  area.innerHTML = '<p><strong>'+year+' 年真题截图</strong></p>'+
+    '<div class="topic-img-placeholder" style="padding:30px;">'+
+    year+' 年 英语作文真题图片<br><span style="font-size:0.75rem;">(实际运行时从 data/英语真题图片/ 加载)</span></div>';
+}
+
+// ── OCR Simulation ──
+function handleEssayImage(input) {
+  if (input.files && input.files[0]) {
+    document.getElementById('essay-img-name').innerText = input.files[0].name;
+    document.getElementById('ocr-btn').style.display = 'inline-block';
+  }
+}
+function simulateOCR() {
+  document.getElementById('ocr-progress').style.display = 'block';
+  document.getElementById('ocr-btn').style.display = 'none';
+  setTimeout(() => {
+    document.getElementById('ocr-progress').style.display = 'none';
+    document.getElementById('ocr-result-area').style.display = 'block';
+    document.getElementById('manual-essay-area').style.display = 'none';
+  }, 1500);
+}
+function resetOCR() {
+  document.getElementById('ocr-result-area').style.display = 'none';
+  document.getElementById('manual-essay-area').style.display = 'block';
+  document.getElementById('essay-img-name').innerText = '未选择文件';
+}
+
+// ── Grade Essay ──
+function gradeEssay() {
+  const examType = document.querySelector('#exam-type-group .radio-btn.active').innerText;
+  const partType = document.querySelector('#part-type-group .radio-btn.active').innerText;
+  const isPartA = partType.includes('Part A');
+  const maxScore = isPartA ? 10 : (examType === '英语一' ? 20 : 15);
+
+  if (isPartA) {
+    // 小作文评分（满分10分）
+    var resultHTML =
+      '<div style="margin-bottom:14px;">'+
+        '<span class="score-big">7/10分</span>'+
+        '<span class="tier-badge">属于第二档的作文</span>'+
+      '</div>'+
+      '<div class="card-sub">分项评估</div>'+
+      '<p>内容完整性：<strong>2/3分</strong> — 基本覆盖所有要点，但有一个次要要点阐述不够充分</p>'+
+      '<p>语言准确性：<strong>2/3分</strong> — 语法和词汇基本正确，存在个别主谓一致和冠词使用错误</p>'+
+      '<p>结构与格式：<strong>3/4分</strong> — 书信格式正确，衔接手段基本有效，但部分段落过渡可更流畅</p>'+
+      '<div class="card-sub" style="margin-top:14px;">点评 (Comments)</div>'+
+      '<p><strong>优点：</strong>任务完成度高，书信格式规范，内容要点覆盖全面。</p>'+
+      '<p><strong>待改进处：</strong>个别主谓一致错误需要注意；语言表达可以更加精炼，避免冗余重复。</p>'+
+      '<p><strong>具体建议：</strong>检查第三人称单数动词形式；尝试使用更多样的衔接手段（如 furthermore, consequently）替代简单的 and/but。</p>';
+  } else {
+    // 大作文评分（满分20分）
+    var resultHTML =
+      '<div style="margin-bottom:14px;">'+
+        '<span class="score-big">14/20分</span>'+
+        '<span class="tier-badge">属于第四档的作文（良好）</span>'+
+      '</div>'+
+      '<div class="card-sub">分项评估</div>'+
+      '<p>内容：<strong>4/5分</strong> — 覆盖所有要点，描述和评论均有一定深度，但寓意解读可更深入</p>'+
+      '<p>语言：<strong>3/5分</strong> — 使用了较为丰富的词汇和句式，但有若干语法和搭配错误</p>'+
+      '<p>结构：<strong>4/5分</strong> — 结构合理，层次清晰，衔接较流畅</p>'+
+      '<p>语体：<strong>3/5分</strong> — 整体语体恰当，但个别口语化表达需要调整</p>'+
+      '<div class="card-sub" style="margin-top:14px;">点评 (Comments)</div>'+
+      '<p><strong>优点：</strong>文章思路清晰，逻辑结构完整，对图表的描述准确到位。</p>'+
+      '<p><strong>待改进处：</strong>语言表达可以更加精炼和多样化；寓意解读部分可以更加深刻。</p>'+
+      '<p><strong>具体建议：</strong>在评论段尝试使用虚拟语气表达假设；增加具体数据支撑论点。</p>';
+  }
+
+  resultHTML +=
+    '<div class="card-sub" style="margin-top:14px;">语法错误检测</div>'+
+    '<p><span class="error-line">[错误]</span> Many people <strong>thinks</strong> that master degree is very important.'+
+    ' → <span class="fixed-line">[修正]</span> Many people <strong>think</strong> that a master\'s degree is very important.</p>'+
+    '<p><span class="error-line">[错误]</span> ... more important <strong>than education</strong>.'+
+    ' → <span class="fixed-line">[修正]</span> ... more important <strong>than formal education</strong>.</p>'+
+
+    '<div class="card-sub" style="margin-top:14px;">句子升级建议</div>'+
+    '<div class="comparison-grid">'+
+      '<div class="compare-pane before"><strong>原句：</strong><br>Many people thinks that master degree is very important for their future career.</div>'+
+      '<div class="compare-pane after"><strong>升级：</strong><br>A growing consensus among contemporary professionals holds that pursuing a master\'s degree plays a pivotal role in career advancement.</div>'+
+    '</div>'+
+
+    '<div class="card-sub" style="margin-top:14px;">修改后版本</div>'+
+    '<p style="padding:12px;background:var(--bg-elevated);border-radius:8px;font-size:0.85rem;line-height:1.8;">'+
+    'A growing consensus among contemporary professionals holds that pursuing a master\'s degree plays a pivotal role in career advancement. '+
+    'However, a significant portion of the population challenges this view, arguing that hands-on experience carries greater weight than formal education. '+
+    'Despite this divergence of opinion, both academic qualifications and practical experience contribute uniquely to professional development.</p>';
+
+  const resultEl = document.getElementById('essay-score-result');
+  resultEl.innerHTML = resultHTML;
+  resultEl.classList.add('show');
+}
+
+// ── Parse Sentence ──
+function parseSentence() {
+  const input = document.getElementById('sentence-input').value.trim();
+  if (!input) return;
+  document.getElementById('sentence-result').classList.add('show');
+}
+
+// ── Translate ──
+function doTranslate() {
+  const input = document.getElementById('translate-input').value.trim();
+  if (!input) return;
+  document.getElementById('translate-result').classList.add('show');
+}
+
+// ── Vocab Lookup ──
+function lookupVocab() {
+  const input = document.getElementById('vocab-input').value.trim();
+  if (!input) return;
+  document.getElementById('vocab-result').classList.add('show');
+}
+</script>
+
+</body>
+</html>

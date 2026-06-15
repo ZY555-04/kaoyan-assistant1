@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>高校热度 — 考研学习助手</title>
+<style>
+:root {
+  --bg-base:#f1f5f9; --bg-surface:#fff; --bg-elevated:#f8fafc;
+  --primary:#4f46e5; --primary-hover:#4338ca; --primary-soft:#eef2ff;
+  --text-main:#1e293b; --text-sub:#64748b; --text-muted:#94a3b8;
+  --border:#e2e8f0; --success:#10b981; --success-soft:#ecfdf5;
+  --warning:#f59e0b; --warning-soft:#fffbeb;
+  --danger:#ef4444; --danger-soft:#fef2f2; --accent-pink:#ec4899;
+  --radius-sm:8px; --radius-md:12px; --radius-lg:18px;
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:0 1px 3px rgba(0,0,0,0.04),0 4px 12px rgba(0,0,0,0.05);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg-base);color:var(--text-main);line-height:1.6;-webkit-font-smoothing:antialiased;}
+.container{max-width:1100px;margin:0 auto;padding:24px 32px;}
+
+.page-header{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 28px;margin-bottom:20px;box-shadow:var(--shadow-sm);}
+.page-header h1{font-size:1.5rem;font-weight:800;margin-bottom:4px;}
+.page-header .sub{font-size:.85rem;color:var(--text-sub);}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;color:var(--primary);font-weight:600;margin-bottom:8px;cursor:pointer;}
+.back-link:hover{text-decoration:underline;}
+
+.top-row{display:flex;align-items:center;gap:16px;}
+
+.card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;box-shadow:var(--shadow-sm);}
+.card h3{font-size:.95rem;font-weight:700;margin-bottom:14px;}
+
+.form-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.form-col{flex:1;min-width:180px;}
+.form-label{font-size:.78rem;font-weight:700;color:var(--text-main);margin-bottom:6px;display:block;}
+input[type="text"]{width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:.86rem;font-family:inherit;color:var(--text-main);background:var(--bg-elevated);}
+input[type="text"]:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(79,70,229,0.10);}
+.btn-primary{padding:10px 22px;border:none;background:var(--primary);color:white;border-radius:24px;font-weight:600;cursor:pointer;font-size:.88rem;font-family:inherit;transition:all .2s;white-space:nowrap;}
+.btn-primary:hover{background:var(--primary-hover);transform:scale(1.02);}
+.btn-full{width:100%;}
+.btn-sm{padding:8px 16px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-sub);border-radius:var(--radius-sm);font-size:.82rem;cursor:pointer;font-family:inherit;transition:all .2s;}
+.btn-sm:hover{background:var(--bg-elevated);color:var(--primary);border-color:var(--primary);}
+
+/* Heat result */
+.heat-result{display:none;}
+.heat-result.show{display:block;}
+.heat-score{font-size:2.4rem;font-weight:800;color:var(--primary);}
+.heat-label{display:inline-block;padding:6px 16px;border-radius:20px;font-size:.82rem;font-weight:600;margin-left:10px;}
+.heat-label.high{background:#fef2f2;color:#dc2626;}
+.heat-label.medium{background:var(--warning-soft);color:#92400e;}
+.heat-label.low{background:var(--success-soft);color:var(--success);}
+
+.progress-bar{background:var(--border);border-radius:8px;height:10px;overflow:hidden;margin:12px 0;}
+.progress-fill{height:100%;border-radius:8px;transition:width .8s ease;background:var(--primary);}
+
+.metrics-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0;}
+.metric-card{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;text-align:center;}
+.metric-card .m-label{font-size:.75rem;color:var(--text-sub);margin-bottom:2px;}
+.metric-card .m-value{font-size:1.3rem;font-weight:700;color:var(--primary);}
+.meta-row{font-size:.8rem;color:var(--text-sub);display:flex;gap:20px;flex-wrap:wrap;margin:8px 0;}
+
+/* Admission table */
+.adt-table{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:8px;}
+.adt-table th{background:var(--bg-elevated);padding:8px 12px;text-align:left;font-weight:600;border-bottom:2px solid var(--border);color:var(--text-sub);}
+.adt-table td{padding:8px 12px;border-bottom:1px solid var(--border);}
+
+/* Prediction */
+.pred-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:12px 0;}
+.pred-card{background:var(--primary-soft);border:1px solid rgba(79,70,229,0.2);border-radius:var(--radius-md);padding:16px;text-align:center;}
+.pred-card .p-label{font-size:.75rem;color:var(--text-sub);}
+.pred-card .p-value{font-size:1.3rem;font-weight:700;color:var(--primary);}
+
+/* Expander */
+.expander{border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;overflow:hidden;}
+.expander-header{padding:10px 14px;background:var(--bg-elevated);cursor:pointer;font-size:.84rem;font-weight:600;color:var(--text-sub);display:flex;justify-content:space-between;user-select:none;}
+.expander-header:hover{background:var(--border);}
+.expander-body{display:none;padding:12px 16px;font-size:.82rem;line-height:1.7;color:var(--text-sub);background:var(--bg-surface);}
+.expander-body.show{display:block;}
+
+/* Platform bars */
+.platform-row{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:.82rem;}
+.platform-name{width:120px;font-weight:600;color:var(--text-main);flex-shrink:0;}
+.platform-bar{flex:1;background:var(--border);border-radius:4px;height:20px;overflow:hidden;}
+.platform-fill{height:100%;border-radius:4px;font-size:.7rem;color:white;display:flex;align-items:center;padding-left:8px;font-weight:600;min-width:fit-content;}
+.platform-fill.bar-high{background:var(--primary);}
+.platform-fill.bar-mid{background:var(--warning);}
+.platform-fill.bar-low{background:var(--text-muted);}
+.platform-score{width:50px;text-align:right;font-weight:600;font-size:.8rem;color:var(--text-main);}
+
+/* Recommendations */
+.rec-card{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-top:12px;font-size:.84rem;line-height:1.7;}
+.rec-card h4{color:var(--primary);margin-bottom:8px;}
+
+/* Tips */
+.info-tip{padding:10px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius-sm);font-size:.84rem;color:var(--primary);text-align:center;margin:20px 0;}
+.warning-tip{padding:10px 14px;background:var(--warning-soft);border:1px solid #fde68a;border-radius:var(--radius-sm);font-size:.82rem;color:#92400e;}
+.profile-summary{font-size:.8rem;color:var(--text-sub);margin:8px 0;padding:8px 12px;background:var(--bg-elevated);border-radius:var(--radius-sm);}
+
+@media(max-width:768px){.container{padding:16px;}.metrics-row,.pred-row{grid-template-columns:1fr;}.form-row{flex-direction:column;}}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <header class="page-header">
+    <div class="top-row">
+      <a class="back-link" onclick="alert('返回首页')">← 返回首页</a>
+      <span style="font-size:.78rem;color:var(--success);">Node.js 预测引擎就绪</span>
+    </div>
+    <h1>高校热度查询</h1>
+    <p class="sub">院校信息与报考热度分析 · 数据 + 媒体双引擎</p>
+  </header>
+
+  <!-- Search Form -->
+  <div class="card">
+    <div class="form-row">
+      <div class="form-col">
+        <span class="form-label">学校名称</span>
+        <input type="text" id="schl-input" placeholder="例如：华东师范大学">
+      </div>
+      <div class="form-col">
+        <span class="form-label">专业名称（可留空）</span>
+        <input type="text" id="maj-input" placeholder="例如：生物学">
+      </div>
+    </div>
+    <button class="btn-primary btn-full" onclick="searchHeat()">查询热度</button>
+
+    <div style="font-size:.78rem;color:var(--text-sub);margin-top:10px;">
+      快捷检索：
+      <a href="#" style="color:var(--primary);" onclick="document.getElementById('schl-input').value='华东师范大学';document.getElementById('maj-input').value='软件工程';searchHeat();return false;">华东师范大学</a> ·
+      <a href="#" style="color:var(--primary);" onclick="document.getElementById('schl-input').value='清华大学';document.getElementById('maj-input').value='计算机科学';searchHeat();return false;">清华大学</a> ·
+      <a href="#" style="color:var(--primary);" onclick="document.getElementById('schl-input').value='北京大学';searchHeat();return false;">北京大学</a>
+    </div>
+  </div>
+
+  <!-- Spinner placeholder -->
+  <div id="search-spinner" style="display:none;text-align:center;padding:16px;font-size:.85rem;color:var(--primary);">正在分析院校热度（数据 + 媒体双引擎）...</div>
+
+  <!-- Results -->
+  <div class="heat-result" id="heat-result">
+
+    <!-- Composite Heat -->
+    <div class="card">
+      <div style="display:flex;align-items:center;margin-bottom:14px;">
+        <span class="heat-score" id="heat-score">88</span><span style="font-size:1rem;color:var(--text-sub);">/100</span>
+        <span class="heat-label high" id="heat-label">竞争激烈</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="heat-bar" style="width:88%;"></div></div>
+
+      <div class="metrics-row">
+        <div class="metric-card"><div class="m-label">数据热度</div><div class="m-value" id="data-heat">82/100</div></div>
+        <div class="metric-card"><div class="m-label">媒体热度</div><div class="m-value" id="media-heat">91/100</div></div>
+        <div class="metric-card"><div class="m-label">置信度</div><div class="m-value" id="confidence" style="color:var(--success);">85%</div></div>
+      </div>
+      <div class="meta-row">
+        <span>数据来源：研招网 + 百度指数 + 微博热搜</span>
+        <span>趋势：近30天 ↗ +14%</span>
+      </div>
+    </div>
+
+    <!-- Admission History -->
+    <div class="card">
+      <h3>录取历史</h3>
+      <table class="adt-table">
+        <thead><tr><th>年份</th><th>报考人数</th><th>录取人数</th><th>报录比</th><th>复试线</th></tr></thead>
+        <tbody>
+          <tr><td>2025</td><td>1,240</td><td>112</td><td><strong>11.1:1</strong></td><td>355分</td></tr>
+          <tr><td>2024</td><td>1,180</td><td>108</td><td>10.9:1</td><td>348分</td></tr>
+          <tr><td>2023</td><td>1,050</td><td>98</td><td>10.7:1</td><td>340分</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 2027 Prediction -->
+    <div class="card">
+      <h3>27届预测</h3>
+      <div class="pred-row">
+        <div class="pred-card"><div class="p-label">预计报考</div><div class="p-value">1,350人</div></div>
+        <div class="pred-card"><div class="p-label">预计报录比</div><div class="p-value">12.3:1</div></div>
+        <div class="pred-card"><div class="p-label">预计复试线</div><div class="p-value">360分</div></div>
+      </div>
+    </div>
+
+    <!-- Exam Subjects -->
+    <div class="expander">
+      <div class="expander-header" onclick="toggleExpander(this)">考试科目 <span>▾</span></div>
+      <div class="expander-body">
+        <p><strong>101</strong> 思想政治理论（统考）</p>
+        <p><strong>201</strong> 英语一（统考）</p>
+        <p><strong>301</strong> 数学一（统考）</p>
+        <p><strong>408</strong> 计算机学科专业基础（统考）</p>
+      </div>
+    </div>
+
+    <!-- Platform Details -->
+    <div class="expander">
+      <div class="expander-header" onclick="toggleExpander(this)">平台热度详情 <span>▾</span></div>
+      <div class="expander-body">
+        <div class="platform-row">
+          <span class="platform-name">百度指数</span>
+          <div class="platform-bar"><div class="platform-fill bar-high" style="width:91%;">91</div></div>
+          <span class="platform-score">91/100</span>
+        </div>
+        <div class="platform-row">
+          <span class="platform-name">微博热搜</span>
+          <div class="platform-bar"><div class="platform-fill bar-high" style="width:88%;">88</div></div>
+          <span class="platform-score">88/100</span>
+        </div>
+        <div class="platform-row">
+          <span class="platform-name">研招网</span>
+          <div class="platform-bar"><div class="platform-fill bar-mid" style="width:75%;">75</div></div>
+          <span class="platform-score">75/100</span>
+        </div>
+        <div class="platform-row">
+          <span class="platform-name">知乎</span>
+          <div class="platform-bar"><div class="platform-fill bar-mid" style="width:62%;">62</div></div>
+          <span class="platform-score">62/100</span>
+        </div>
+        <div class="platform-row">
+          <span class="platform-name">小红书</span>
+          <div class="platform-bar"><div class="platform-fill bar-mid" style="width:80%;">80</div></div>
+          <span class="platform-score">80/100</span>
+        </div>
+        <div class="platform-row">
+          <span class="platform-name">B站</span>
+          <div class="platform-bar"><div class="platform-fill bar-low" style="width:48%;">48</div></div>
+          <span class="platform-score">48/100</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- School Info -->
+    <div class="expander">
+      <div class="expander-header" onclick="toggleExpander(this)">院校信息 <span>▾</span></div>
+      <div class="expander-body">
+        <p><strong>层次：</strong>985 / 211 / 双一流</p>
+        <p><strong>院系：</strong>计算机科学与技术学院</p>
+        <p><strong>推免比例：</strong>约 40%</p>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="expander">
+      <div class="expander-header" onclick="toggleExpander(this)">备注 <span>▾</span></div>
+      <div class="expander-body">
+        <p>该校复试看重专业基础和算法上机能力</p>
+        <p>2025年起专业课改为408统考</p>
+        <p>建议一轮复习中抓紧数学和数据结构</p>
+      </div>
+    </div>
+
+    <!-- Personal Recommendation -->
+    <div class="card">
+      <h3>个人建议</h3>
+      <div class="profile-summary">
+        当前画像：本科211 · 目标软件工程 · 强科：数学、专业课 · 弱科：英语 · 焦虑程度 3/5
+      </div>
+      <button class="btn-sm btn-full" onclick="generateRec()">生成/刷新个人建议</button>
+      <div class="rec-card hidden" id="rec-result">
+        <h4>AI 个性化报考建议</h4>
+        <p><strong>1. 竞争评估</strong></p>
+        <p>华东师大软件工程学硕竞争激烈（报录比 11:1），属于985中的热门选择。你的本科211背景属于该校目标生源范围，有一定优势。建议将目标分数设定在 370+ 以增加确定性。</p>
+        <p style="margin-top:8px;"><strong>2. 弱势科目强化</strong></p>
+        <p>你的弱科为英语，而408专业课和数学是你的强项。英语在初试中占100分（约20%），建议每天固定1.5小时英语训练。重点攻克阅读Part B和作文，这两项提分最快。</p>
+        <p style="margin-top:8px;"><strong>3. 备选方案</strong></p>
+        <p>考虑将上海大学、华东理工大学作为备选，两校计算机学科同样强势但竞争稍缓。建议保持3:1的冲刺/稳妥比。</p>
+        <p style="font-size:.75rem;color:var(--text-muted);margin-top:8px;">以上建议基于你的个人画像 + 院校数据由 AI 生成，仅供参考。</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Empty state -->
+  <div class="info-tip" id="empty-state">输入学校和专业名称，点击「查询热度」开始分析</div>
+
+</div>
+
+<script>
+// ── Search ──
+function searchHeat(){
+  const schl=document.getElementById('schl-input').value.trim();
+  if(!schl)return;
+  document.getElementById('search-spinner').style.display='block';
+  document.getElementById('heat-result').classList.remove('show');
+  document.getElementById('empty-state').style.display='none';
+  setTimeout(()=>{
+    document.getElementById('search-spinner').style.display='none';
+    document.getElementById('heat-result').classList.add('show');
+  },1200);
+}
+
+// ── Expander ──
+function toggleExpander(hdr){
+  const body=hdr.nextElementSibling;
+  const isOpen=body.classList.contains('show');
+  body.classList.toggle('show');
+  hdr.querySelector('span').innerText=isOpen?'▾':'▴';
+}
+
+// ── Recommendation ──
+function generateRec(){
+  document.getElementById('rec-result').classList.remove('hidden');
+}
+</script>
+
+</body>
+</html>

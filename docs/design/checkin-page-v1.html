@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>打卡督学 — 考研学习助手</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root {
+  --bg-base:#f1f5f9; --bg-surface:#fff; --bg-elevated:#f8fafc;
+  --primary:#4f46e5; --primary-hover:#4338ca; --primary-soft:#eef2ff;
+  --accent-pink:#ec4899; --text-main:#1e293b; --text-sub:#64748b;
+  --text-muted:#94a3b8; --border:#e2e8f0; --success:#10b981;
+  --success-soft:#ecfdf5; --warning:#f59e0b; --warning-soft:#fffbeb;
+  --danger:#ef4444; --danger-soft:#fef2f2;
+  --radius-sm:8px; --radius-md:12px; --radius-lg:18px;
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:0 1px 3px rgba(0,0,0,0.04),0 4px 12px rgba(0,0,0,0.05);
+  --shadow-lg:0 2px 6px rgba(0,0,0,0.06),0 8px 24px rgba(79,70,229,0.08);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg-base);color:var(--text-main);line-height:1.6;-webkit-font-smoothing:antialiased;}
+.container{max-width:1200px;margin:0 auto;padding:24px 32px;}
+
+.page-header{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 28px;margin-bottom:20px;box-shadow:var(--shadow-sm);}
+.page-header h1{font-size:1.5rem;font-weight:800;margin-bottom:4px;}
+.page-header .sub{font-size:.85rem;color:var(--text-sub);}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;color:var(--primary);font-weight:600;margin-bottom:8px;cursor:pointer;}
+.back-link:hover{text-decoration:underline;}
+
+/* Metrics */
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px;}
+.metric-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:18px;box-shadow:var(--shadow-sm);text-align:center;}
+.metric-card .label{font-size:.78rem;color:var(--text-sub);margin-bottom:4px;}
+.metric-card .value{font-size:1.8rem;font-weight:800;color:var(--primary);}
+
+/* Reminders */
+.reminder{padding:10px 16px;border-radius:var(--radius-sm);font-size:.82rem;margin-bottom:8px;font-weight:500;}
+.reminder.warning{background:var(--warning-soft);border:1px solid #fde68a;color:#92400e;}
+.reminder.info{background:#eff6ff;border:1px solid #bfdbfe;color:var(--primary);}
+
+/* Tabs */
+.tab-nav{display:flex;gap:6px;background:var(--border);padding:4px;border-radius:10px;width:fit-content;margin-bottom:18px;flex-wrap:wrap;}
+.tab-btn{padding:8px 18px;border-radius:7px;border:none;background:transparent;font-size:.85rem;font-weight:500;color:var(--text-sub);cursor:pointer;transition:all .2s;font-family:inherit;}
+.tab-btn.active{background:white;color:var(--primary);box-shadow:var(--shadow-sm);font-weight:600;}
+.tab-pane{display:none;animation:fadeSlide .3s ease;}
+.tab-pane.active{display:block;}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Cards */
+.card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;box-shadow:var(--shadow-sm);}
+.card h3{font-size:.95rem;font-weight:700;margin-bottom:14px;}
+
+/* Form */
+.form-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;}
+.form-col{flex:1;min-width:160px;}
+.form-label{font-size:.78rem;font-weight:700;color:var(--text-main);margin-bottom:6px;display:block;}
+input[type="text"],textarea,select{
+  width:100%;padding:9px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  font-size:.85rem;font-family:inherit;color:var(--text-main);background:var(--bg-elevated);
+}
+input[type="text"]:focus,textarea:focus,select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(79,70,229,0.10);}
+textarea{resize:vertical;}
+.btn-primary{padding:10px 22px;border:none;background:var(--primary);color:white;border-radius:24px;font-weight:600;cursor:pointer;font-size:.88rem;font-family:inherit;transition:all .2s;white-space:nowrap;}
+.btn-primary:hover{background:var(--primary-hover);transform:scale(1.02);}
+.btn-full{width:100%;}
+.btn-sm{padding:8px 16px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-sub);border-radius:var(--radius-sm);font-size:.82rem;cursor:pointer;font-family:inherit;transition:all .2s;}
+.btn-sm:hover{background:var(--bg-elevated);color:var(--primary);border-color:var(--primary);}
+.danger-btn{color:var(--danger);}
+.danger-btn:hover{background:var(--danger-soft);color:var(--danger);border-color:var(--danger);}
+
+/* Slider */
+.slider-group{margin-bottom:12px;}
+.slider-group input[type="range"]{width:100%;margin:4px 0;}
+.slider-val{font-size:.78rem;color:var(--primary);font-weight:700;}
+
+/* Radio & Select */
+.radio-row{display:flex;gap:6px;flex-wrap:wrap;}
+.radio-btn{padding:6px 15px;border-radius:20px;border:1px solid var(--border);background:var(--bg-surface);font-size:.82rem;cursor:pointer;font-family:inherit;color:var(--text-sub);transition:all .2s;}
+.radio-btn.active{background:var(--primary-soft);color:var(--primary);border-color:var(--primary);font-weight:600;}
+
+/* 30-day calendar grid */
+.cal-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;text-align:center;margin-top:8px;}
+.cal-cell{padding:6px 2px;font-size:.7rem;}
+.cal-cell .dot{font-size:1rem;display:block;}
+
+/* Phase table */
+.phase-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px;border-radius:var(--radius-sm);overflow:hidden;}
+.phase-table th{background:var(--primary);color:white;padding:8px 12px;text-align:left;}
+.phase-table td{padding:8px 12px;border-bottom:1px solid var(--border);}
+.phase-table tr.active-row{background:var(--primary-soft);font-weight:600;}
+.phase-table tr:nth-child(even){background:var(--bg-elevated);}
+
+/* Pomodoro */
+.pomo-display{text-align:center;padding:30px 0;}
+.pomo-time{font-size:4rem;font-weight:800;color:var(--text-main);font-variant-numeric:tabular-nums;margin:16px 0;}
+.pomo-bar{background:var(--border);border-radius:8px;height:8px;overflow:hidden;margin:12px 0;}
+.pomo-bar-fill{height:100%;background:var(--primary);border-radius:8px;transition:width 1s linear;}
+.pomo-stats{font-size:.8rem;color:var(--text-sub);margin-bottom:12px;}
+
+/* Profile display */
+.profile-display{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-top:14px;}
+.profile-row{display:flex;justify-content:space-between;padding:6px 0;font-size:.84rem;border-bottom:1px solid var(--border-light);}
+.profile-row:last-child{border-bottom:none;}
+.profile-row .pv{font-weight:600;color:var(--text-main);}
+
+/* Timeline */
+.timeline-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:.84rem;}
+.timeline-date{font-weight:700;color:var(--primary);font-size:.8rem;}
+
+/* Result card */
+.result-card{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-top:14px;font-size:.84rem;line-height:1.7;}
+.result-card h4{color:var(--primary);margin-bottom:8px;}
+
+/* Tips */
+.success-tip{padding:10px 14px;background:var(--success-soft);border:1px solid #a7f3d0;border-radius:var(--radius-sm);font-size:.82rem;color:var(--success);margin:8px 0;}
+.info-tip{padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius-sm);font-size:.82rem;color:var(--primary);margin:8px 0;}
+.hidden{display:none;}
+
+/* Checkbox list */
+.checkbox-group{display:flex;gap:12px;flex-wrap:wrap;}
+.checkbox-group label{display:flex;align-items:center;gap:4px;font-size:.84rem;cursor:pointer;}
+
+@media(max-width:768px){
+  .container{padding:16px;}
+  .metrics-row{grid-template-columns:repeat(2,1fr);}
+  .form-row{flex-direction:column;}
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <header class="page-header">
+    <a class="back-link" onclick="alert('返回首页')">← 返回首页</a>
+    <h1>打卡与督学</h1>
+    <p class="sub">每日打卡 · 学习计划 · 学习日记 · 番茄计时 · 学习画像</p>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-top:4px;">当前用户：小明（user_id=1）</p>
+  </header>
+
+  <!-- Metrics -->
+  <div class="metrics-row">
+    <div class="metric-card"><div class="label">连续打卡</div><div class="value">47 <span style="font-size:.85rem;color:var(--text-sub);">天</span></div></div>
+    <div class="metric-card"><div class="label">今日学习</div><div class="value">180 <span style="font-size:.85rem;color:var(--text-sub);">分钟</span></div></div>
+    <div class="metric-card"><div class="label">计划完成率</div><div class="value" style="color:var(--success);">82%</div></div>
+    <div class="metric-card"><div class="label">今日心情</div><div class="value" style="font-size:1.6rem;">&#x1F60A;</div></div>
+  </div>
+
+  <!-- Reminders -->
+  <div class="reminder info">距离今日学习目标还差 1.5 小时，继续加油！</div>
+
+  <!-- Tabs -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('daily',this)">每日打卡</button>
+    <button class="tab-btn" onclick="switchTab('diary',this)">学习日记</button>
+    <button class="tab-btn" onclick="switchTab('plan',this)">学习计划</button>
+    <button class="tab-btn" onclick="switchTab('pomodoro',this)">番茄计时</button>
+    <button class="tab-btn" onclick="switchTab('profile',this)">学习画像</button>
+  </div>
+
+  <!-- ═══════════ TAB 1: 每日打卡 ═══════════ -->
+  <div id="tab-daily" class="tab-pane active">
+    <div class="success-tip">今天已打卡，可重新提交覆盖今日记录。</div>
+
+    <!-- Today's record -->
+    <div class="card" style="margin-top:12px;">
+      <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:.85rem;">
+        <span><strong>科目：</strong>数学</span>
+        <span><strong>时长：</strong>180 分钟</span>
+        <span><strong>完成度：</strong>80%</span>
+      </div>
+      <div style="margin-top:6px;font-size:.85rem;"><strong>心情：</strong>开心</div>
+      <div style="font-size:.78rem;color:var(--text-sub);margin-top:4px;">备注：今天刷了定积分章节的30道题</div>
+    </div>
+
+    <!-- Check-in Form -->
+    <div class="card">
+      <h3>提交打卡</h3>
+      <div class="form-row">
+        <div class="form-col">
+          <span class="form-label">学习科目</span>
+          <select id="ck-subject">
+            <option>数学</option><option>英语</option><option>政治</option><option>综合</option>
+          </select>
+        </div>
+      </div>
+      <div class="slider-group">
+        <span class="form-label">学习时长：<span class="slider-val" id="dur-label">120</span> 分钟</span>
+        <input type="range" min="0" max="480" value="120" step="15" oninput="document.getElementById('dur-label').innerText=this.value">
+      </div>
+      <div class="slider-group">
+        <span class="form-label">完成度：<span class="slider-val" id="comp-label">80</span>%</span>
+        <input type="range" min="0" max="100" value="80" step="5" oninput="document.getElementById('comp-label').innerText=this.value">
+      </div>
+      <div class="form-label" style="margin-bottom:6px;">心情</div>
+      <div class="radio-row" id="mood-group" style="margin-bottom:12px;">
+        <button class="radio-btn" onclick="selectRadio(this,'mood-group')">开心</button>
+        <button class="radio-btn active" onclick="selectRadio(this,'mood-group')">一般</button>
+        <button class="radio-btn" onclick="selectRadio(this,'mood-group')">疲惫</button>
+        <button class="radio-btn" onclick="selectRadio(this,'mood-group')">焦虑</button>
+        <button class="radio-btn" onclick="selectRadio(this,'mood-group')">崩溃</button>
+      </div>
+      <input type="text" placeholder="备注（选填）" style="margin-bottom:12px;">
+      <button class="btn-primary btn-full" onclick="alert('打卡已保存。')">提交打卡</button>
+    </div>
+
+    <!-- 30-day calendar -->
+    <div class="card">
+      <h3>最近 30 天</h3>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+
+    <!-- Study trend chart -->
+    <div class="card">
+      <h3>学习趋势</h3>
+      <div style="height:220px;"><canvas id="trendChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ TAB 2: 学习日记 ═══════════ -->
+  <div id="tab-diary" class="tab-pane">
+    <div class="card">
+      <h3>今日日记</h3>
+      <textarea id="diary-input" style="height:180px;" placeholder="今天学了什么？有什么收获？遇到了什么困难？明天打算怎么做？">今天完成了定积分章节的复习，做了30道练习题。感觉旋转体体积的计算还不够熟练，明天重点攻克这个难点。</textarea>
+      <button class="btn-primary btn-full" style="margin-top:10px;" onclick="alert('日记已保存。')">保存日记</button>
+    </div>
+
+    <!-- Study Timeline -->
+    <div class="card">
+      <h3>学习足迹（近14天）</h3>
+      <div class="timeline-item"><span class="timeline-date">06-14</span> · 日记：今天完成了定积分章节的复习...</div>
+      <div class="timeline-item"><span class="timeline-date">06-13</span> · 日记：英语作文练习了2篇，长难句解析5句</div>
+      <div class="timeline-item"><span class="timeline-date">06-13</span> · 计划：创建了「强化阶段计划」</div>
+      <div class="timeline-item"><span class="timeline-date">06-12</span> · 日记：线性代数特征值章节完成，感觉掌握了</div>
+      <div class="timeline-item"><span class="timeline-date">06-11</span> · 日记：概率论开始复习，第一章基础概念</div>
+      <div class="timeline-item"><span class="timeline-date">06-10</span> · 日记：数学真题2019年模拟，得分118/150</div>
+      <div style="font-size:.78rem;color:var(--text-muted);text-align:center;padding-top:10px;">... 更多记录</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ TAB 3: 学习计划 ═══════════ -->
+  <div id="tab-plan" class="tab-pane">
+
+    <!-- Phase Table -->
+    <div class="card">
+      <h3>当前阶段：强化阶段</h3>
+      <table class="phase-table">
+        <thead><tr><th>阶段</th><th>时间</th><th>核心任务</th></tr></thead>
+        <tbody>
+          <tr><td>基础阶段</td><td>3-6月</td><td>全面打基础、吃透教材和基础题</td></tr>
+          <tr class="active-row"><td>强化阶段</td><td>7-9月</td><td>专项突破、大量刷题、建立做题体系</td></tr>
+          <tr><td>提升阶段</td><td>10-11月</td><td>真题实战、查漏补缺、模考检验</td></tr>
+          <tr><td>冲刺阶段</td><td>12月</td><td>高频考点押题、心理调整、保持手感</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Generate Plan Form -->
+    <div class="card">
+      <h3>生成学习计划</h3>
+      <div class="form-row">
+        <div class="form-col">
+          <span class="form-label">学习阶段</span>
+          <select>
+            <option>基础阶段</option><option selected>强化阶段</option>
+            <option>提升阶段</option><option>冲刺阶段</option>
+          </select>
+        </div>
+        <div class="form-col">
+          <span class="form-label">选择科目</span>
+          <div class="checkbox-group">
+            <label><input type="checkbox" checked> 数学</label>
+            <label><input type="checkbox" checked> 英语</label>
+            <label><input type="checkbox"> 政治</label>
+            <label><input type="checkbox"> 专业课</label>
+          </div>
+        </div>
+      </div>
+      <div class="slider-group">
+        <span class="form-label">每日学习时长：<span class="slider-val" id="hours-label">6</span> 小时</span>
+        <input type="range" min="2" max="12" value="6" oninput="document.getElementById('hours-label').innerText=this.value">
+      </div>
+      <button class="btn-primary btn-full" onclick="generatePlan()">生成学习计划</button>
+
+      <div class="result-card hidden" id="plan-result">
+        <h4>学习计划 — 强化阶段</h4>
+        <p><strong>数学（每日 2.5h）</strong></p>
+        <ul style="padding-left:20px;margin:4px 0 10px;">
+          <li>专题突破：每周攻克1-2个重点专题（本周：定积分应用+多元微分）</li>
+          <li>刷题量：每日20-30道练习题，周末一套完整真题</li>
+          <li>错题整理：建立错题本，每周日回顾本周错题</li>
+        </ul>
+        <p><strong>英语（每日 1.5h）</strong></p>
+        <ul style="padding-left:20px;margin:4px 0 10px;">
+          <li>阅读：每日2篇真题阅读+精析</li>
+          <li>作文：每周2篇大作文+2篇小作文练习</li>
+          <li>单词：每日50个考研核心词汇复习</li>
+        </ul>
+        <p style="font-size:.78rem;color:var(--text-sub);margin-top:8px;">总字数约500字 · 理性朴素风格 · 结合用户画像生成</p>
+        <button class="btn-sm" style="margin-top:8px;" onclick="alert('计划已保存！')">保存此计划</button>
+      </div>
+    </div>
+
+    <!-- Saved Plans -->
+    <div class="card">
+      <h3>已保存的计划</h3>
+
+      <!-- Plan 1 -->
+      <div class="saved-plan-item" style="border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;overflow:hidden;">
+        <div class="saved-plan-header" onclick="toggleSavedPlan(this)" style="padding:10px 14px;background:var(--bg-elevated);cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;">
+          <span><strong>强化阶段计划</strong> — 2026-06-13 <span style="font-size:0.7rem;color:var(--text-muted);margin-left:6px;">展开 ▾</span></span>
+          <button class="btn-sm danger-btn" onclick="event.stopPropagation();alert('已删除')" style="flex-shrink:0;">删除</button>
+        </div>
+        <div class="saved-plan-body" style="display:none;padding:14px 16px;font-size:0.84rem;line-height:1.7;color:var(--text-sub);border-top:1px solid var(--border);background:var(--bg-surface);">
+          <p><strong style="color:var(--text-main);">数学（每日 2.5h）</strong></p>
+          <ul style="padding-left:20px;margin:4px 0 10px;">
+            <li>专题突破：每周攻克1-2个重点专题（本周：定积分应用+多元微分）</li>
+            <li>刷题量：每日20-30道练习题，周末一套完整真题</li>
+            <li>错题整理：建立错题本，每周日回顾本周错题</li>
+          </ul>
+          <p><strong style="color:var(--text-main);">英语（每日 1.5h）</strong></p>
+          <ul style="padding-left:20px;margin:4px 0 10px;">
+            <li>阅读：每日2篇真题阅读+精析</li>
+            <li>作文：每周2篇大作文+2篇小作文练习</li>
+            <li>单词：每日50个考研核心词汇复习</li>
+          </ul>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">计划生成时间：2026-06-13 · 目标阶段：强化阶段</p>
+        </div>
+      </div>
+
+      <!-- Plan 2 -->
+      <div class="saved-plan-item" style="border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;overflow:hidden;">
+        <div class="saved-plan-header" onclick="toggleSavedPlan(this)" style="padding:10px 14px;background:var(--bg-elevated);cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;">
+          <span><strong>基础阶段计划</strong> — 2026-04-01 <span style="font-size:0.7rem;color:var(--text-muted);margin-left:6px;">展开 ▾</span></span>
+          <button class="btn-sm danger-btn" onclick="event.stopPropagation();alert('已删除')" style="flex-shrink:0;">删除</button>
+        </div>
+        <div class="saved-plan-body" style="display:none;padding:14px 16px;font-size:0.84rem;line-height:1.7;color:var(--text-sub);border-top:1px solid var(--border);background:var(--bg-surface);">
+          <p><strong style="color:var(--text-main);">数学（每日 2h）</strong></p>
+          <ul style="padding-left:20px;margin:4px 0 10px;">
+            <li>教材通读：逐章学习同济版高等数学教材</li>
+            <li>基础题型练习：每天10-15道基础题巩固概念</li>
+            <li>公式推导：理解并默写核心公式的推导过程</li>
+          </ul>
+          <p><strong style="color:var(--text-main);">英语（每日 1h）</strong></p>
+          <ul style="padding-left:20px;margin:4px 0 10px;">
+            <li>词汇积累：每日30个考研核心词汇</li>
+            <li>长难句：每日解析3个真题长难句</li>
+            <li>阅读基础：每日1篇真题阅读+全文翻译</li>
+          </ul>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">计划生成时间：2026-04-01 · 目标阶段：基础阶段</p>
+        </div>
+      </div>
+
+      <p style="font-size:0.75rem;color:var(--text-muted);text-align:center;padding-top:6px;">点击计划标题展开/收起详情</p>
+    </div>
+  </div>
+
+  <!-- ═══════════ TAB 4: 番茄计时 ═══════════ -->
+  <div id="tab-pomodoro" class="tab-pane">
+    <div class="pomo-stats">今日已完成 3 个番茄，共 75 分钟</div>
+
+    <div class="card">
+      <div class="form-row">
+        <div class="form-col">
+          <span class="form-label">学习科目</span>
+          <select id="pomo-subject">
+            <option>数学</option><option>英语</option><option>政治</option><option>综合</option>
+          </select>
+        </div>
+        <div class="form-col">
+          <span class="form-label">时长（分钟）</span>
+          <select id="pomo-duration">
+            <option>15</option><option selected>25</option><option>45</option><option>60</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pomo-display">
+        <div class="pomo-time" id="pomo-time">25:00</div>
+        <div class="pomo-bar"><div class="pomo-bar-fill" id="pomo-fill" style="width:0%;"></div></div>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn-primary" style="flex:1;" onclick="startPomo()">开始</button>
+        <button class="btn-sm" style="flex:1;" onclick="resetPomo()">暂停/重置</button>
+        <button class="btn-sm" style="flex:1;" onclick="alert('番茄记录已保存。')">手动完成</button>
+      </div>
+
+      <div class="info-tip" style="margin-top:12px;">选择科目和时长后点击开始。番茄完成后自动保存并显示庆祝动画。</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ TAB 5: 学习画像 ═══════════ -->
+  <div id="tab-profile" class="tab-pane">
+    <div class="info-tip">填写以下信息，系统会为你生成更精准的学习计划。</div>
+
+    <div class="card">
+      <h3>学习画像问卷</h3>
+      <div class="form-row">
+        <div class="form-col">
+          <span class="form-label">目标院校</span>
+          <input type="text" placeholder="例如：清华大学、华东师范大学" value="华东师范大学">
+        </div>
+        <div class="form-col">
+          <span class="form-label">目标专业</span>
+          <input type="text" placeholder="例如：计算机科学与技术" value="软件工程">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-col">
+          <span class="form-label">本专业</span>
+          <input type="text" placeholder="例如：计算机科学与技术" value="计算机科学与技术">
+        </div>
+        <div class="form-col">
+          <span class="form-label">本科院校级别</span>
+          <select>
+            <option>双非</option><option>双一流</option><option selected>211</option><option>985</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-col">
+          <span class="form-label">是否跨考</span>
+          <select><option selected>否</option><option>是</option></select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-col">
+          <span class="form-label">强科（多选）</span>
+          <div class="checkbox-group">
+            <label><input type="checkbox" checked> 数学</label>
+            <label><input type="checkbox"> 英语</label>
+            <label><input type="checkbox"> 政治</label>
+            <label><input type="checkbox" checked> 专业课</label>
+          </div>
+        </div>
+        <div class="form-col">
+          <span class="form-label">弱科（多选）</span>
+          <div class="checkbox-group">
+            <label><input type="checkbox"> 数学</label>
+            <label><input type="checkbox" checked> 英语</label>
+            <label><input type="checkbox"> 政治</label>
+            <label><input type="checkbox"> 专业课</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <span class="form-label">焦虑程度：<span class="slider-val" id="anxiety-label">3</span>/5</span>
+        <input type="range" min="1" max="5" value="3" oninput="document.getElementById('anxiety-label').innerText=this.value">
+      </div>
+
+      <button class="btn-primary btn-full" onclick="alert('画像已保存！生成学习计划时会自动参考。')">保存画像</button>
+    </div>
+
+    <!-- Current Profile -->
+    <div class="card">
+      <h3>当前画像</h3>
+      <div class="profile-display">
+        <div class="profile-row"><span>目标院校</span><span class="pv">华东师范大学</span></div>
+        <div class="profile-row"><span>目标专业</span><span class="pv">软件工程</span></div>
+        <div class="profile-row"><span>本专业</span><span class="pv">计算机科学与技术</span></div>
+        <div class="profile-row"><span>本科院校级别</span><span class="pv">211</span></div>
+        <div class="profile-row"><span>是否跨考</span><span class="pv">否</span></div>
+        <div class="profile-row"><span>强科</span><span class="pv">数学、专业课</span></div>
+        <div class="profile-row"><span>弱科</span><span class="pv">英语</span></div>
+        <div class="profile-row"><span>焦虑程度</span><span class="pv">3/5</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Tab ──
+function switchTab(name,el){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='daily'){setTimeout(initCal,50);setTimeout(initTrendChart,100);}
+}
+
+// ── Radio ──
+function selectRadio(btn,gid){
+  document.getElementById(gid).querySelectorAll('.radio-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Saved plan expand ──
+function toggleSavedPlan(header){
+  const body=header.nextElementSibling;
+  const isOpen=body.style.display==='block';
+  body.style.display=isOpen?'none':'block';
+  const arrow=header.querySelector('span span');
+  if(arrow)arrow.innerText=isOpen?'展开 ▾':'收起 ▴';
+}
+
+// ── Plan generation ──
+function generatePlan(){
+  document.getElementById('plan-result').classList.remove('hidden');
+}
+
+// ── Pomodoro ──
+let pomoInterval=null,pomoSeconds=0,pomoTotal=25*60;
+function startPomo(){
+  const dur=parseInt(document.getElementById('pomo-duration').value);
+  pomoTotal=dur*60;
+  if(pomoInterval)clearInterval(pomoInterval);
+  pomoSeconds=0;
+  updatePomoDisplay();
+  pomoInterval=setInterval(()=>{
+    pomoSeconds++;
+    updatePomoDisplay();
+    if(pomoSeconds>=pomoTotal){clearInterval(pomoInterval);pomoInterval=null;alert('番茄完成！建议休息5分钟。');}
+  },1000);
+}
+function resetPomo(){
+  if(pomoInterval)clearInterval(pomoInterval);pomoInterval=null;
+  pomoSeconds=0;updatePomoDisplay();
+}
+function updatePomoDisplay(){
+  const rem=pomoTotal-pomoSeconds;
+  const m=Math.floor(rem/60),s=rem%60;
+  document.getElementById('pomo-time').innerText=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  document.getElementById('pomo-fill').style.width=(pomoSeconds/pomoTotal*100)+'%';
+}
+
+// ── 30-day calendar ──
+function initCal(){
+  const grid=document.getElementById('cal-grid');if(!grid||grid.children.length)return;
+  const moods=['active','active','active','high','active','active','active','','high','active','active','','active','active','high','active','active','active','','active','high','active','active','active','high','active','active','active','active','high'];
+  let html='';
+  const today=new Date();
+  for(let i=29;i>=0;i--){
+    const d=new Date(today);d.setDate(d.getDate()-i);
+    const label=String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    const m=moods[i];
+    let dot='⚪';
+    if(m==='high')dot='🟢';
+    else if(m==='active')dot='🟡';
+    html+='<div class="cal-cell"><span class="dot">'+dot+'</span>'+label+'</div>';
+  }
+  grid.innerHTML=html;
+}
+
+// ── Trend chart ──
+let trendReady=false;
+function initTrendChart(){
+  if(trendReady)return;
+  const ctx=document.getElementById('trendChart');if(!ctx)return;
+  const g=ctx.getContext('2d').createLinearGradient(0,0,0,200);
+  g.addColorStop(0,'rgba(79,70,229,0.2)');g.addColorStop(1,'rgba(79,70,229,0)');
+  new Chart(ctx,{type:'line',data:{
+    labels:Array.from({length:30},(_,i)=>'06-'+(i+1)),
+    datasets:[
+      {label:'学习时长(分钟)',data:Array.from({length:30},()=>Math.floor(Math.random()*180+60)),borderColor:'#4f46e5',borderWidth:2,backgroundColor:g,fill:true,tension:.3,pointRadius:0},
+      {label:'完成度(%)',data:Array.from({length:30},()=>Math.floor(Math.random()*40+60)),borderColor:'#10b981',borderWidth:2,fill:false,tension:.3,pointRadius:0,yAxisID:'y1'}
+    ]
+  },options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:16,font:{size:11}}}},
+    scales:{
+      x:{grid:{display:false},ticks:{maxTicksLimit:6,font:{size:10}}},
+      y:{grid:{color:'#e2e8f0'},ticks:{font:{size:10}},title:{display:true,text:'分钟',font:{size:10}}},
+      y1:{position:'right',grid:{display:false},ticks:{font:{size:10},callback:function(v){return v+'%'}},min:0,max:100}
+    }
+  }});
+  trendReady=true;
+}
+
+// Init
+setTimeout(initCal,100);setTimeout(initTrendChart,200);
+</script>
+</body>
+</html>

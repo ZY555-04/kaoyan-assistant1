@@ -52,15 +52,32 @@ suggest   → 提建议
 - `max_tokens` 默认 1500
 - 所有 API 调用走 `call_llm_api(prompt, model="mimo-v2.5")` 或 `run_pipeline()` generator
 
-### CSS 色系（当前橙色主题）
+### UI 设计系统（Indigo 主题）
 
 ```css
-主色: #D77757 (terra cotta orange) → #E8926A (渐变)
-背景: #F8FAFC
-卡片: #FFFFFF / #f8f9fa
-学习卡片: #fff8f0 (学习中) / #f0faf4 (已掌握)
-参考标签: #fef5f0, 文字 #8b5a3c
+主色: #4f46e5 → #6366f1 (靛蓝)
+背景: #f1f5f9
+卡片: 毛玻璃渐变 + backdrop-filter blur + 圆角 20px
+学习卡片: #fff7ed (学习中) / #f0fdf4 (已掌握)
+参考标签: #eef2ff, 文字 #4f46e5
+侧边栏: 毛玻璃渐变背景 + 2 分组标签 + 7 Emoji 按钮 + 流光边框活跃项
+Hub: Hero 渐隐标题 + Flow 心流指标 + 4 SVG feature cards + 2 wide cards
+Feature Cards: SVG 图标 + 玻璃材质 + 呼吸动画 + <a> 整卡可点
+页面过渡: breatheIn 模糊→清晰 + cardReveal 错开浮现 + sidebarSlideIn
 ```
+
+### 侧边栏
+
+- **导航方式**: Emoji + `st.button`（稳定可靠，不用 `<a>` 或 SVG mask）
+- **分组**: `📚 核心功能` (备考看板/数学问答/英语专家/打卡督学) + `🔧 辅助工具` (高校热度/学习资料/提建议)
+- **效果**: 毛玻璃背景、活跃项渐变流光边框、按钮弹性按压动画、用户卡片统计真实打卡天数
+- **品牌区**: 书本 SVG + 渐变文字标题
+
+### Hub 卡片
+
+- **图标**: 6 张卡片全部 Feather 风格 inline SVG（四宫格/柱状图/书本/聊天气泡/文档/对勾）
+- **点击**: `<a href="?p=xxx">` query param 路由，整卡可点
+- **效果**: 玻璃材质 + 呼吸动画 cardBreathe + hover 上浮 + 光晕扩散
 
 ### 数据库
 
@@ -119,7 +136,26 @@ nohup streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.
 
 ## 最近改动
 
-- 学习计划 prompt 去「老师」化：语气从亲切/有温度改为朴素/理性，禁用称呼（亲爱的同学/孩子/老师），格式从大段文字改为短段落+要点，字数 800→600
-- Cookie 持久化登录、Pandoc DOCX 生成、知识库独立外包包
-- 英语资料 7 分类、概念自测+解题评分、高校热度画像表单移至打卡督学
-- MiMo API 全量切换（12 个 GLM 硬编码 → `mimo-v2.5`），`_extract_content()` 全局修复
+- **2026-06-15 UI 全面重设计**:
+  - CSS 切换到 Indigo 主题 (#4f46e5/#6366f1)，Design Tokens 体系
+  - Hub 改为 Dashboard 布局：Hero 渐隐标题 + Flow 心流指标 + 4 SVG feature cards + 2 wide cards
+  - 卡片全部 Feather 风格 SVG 图标（四宫格/柱状图/书本/聊天气泡/文档/对勾）
+  - 卡片 `<a href="?p=xxx">` query param 路由，整卡任意位置可点
+  - 侧边栏全局常驻：毛玻璃背景、2 分组标签、Emoji + st.button 导航、流光边框、弹性按钮
+  - 侧边栏用户卡片升级：头像渐变流光 + 打卡天数统计
+  - 6 层呼吸过渡动画系统（breatheIn / cardReveal / sidebarSlideIn / bannerReveal / qaRise / navItemFade）
+  - 页面切换模糊→清晰过渡 + 卡片错开浮现
+- 学习计划 prompt 去「老师」化（朴素理性风格）
+- MiMo API 全量切换（`_extract_content()` 全局修复）
+- pack.py 添加 recommend.py，.gitignore 更新
+- 新建 `启动.bat` / `管理进程.bat`（纯 ASCII，端口轮询，自动开浏览器）
+- Memory 记忆系统配置 + CLAUDE.md 当前任务章节
+
+## 当前任务
+
+> **每次会话结束时更新此章节，下次新会话自动加载。**
+
+- **进行中**: 无
+- **待办**: 无
+- **上次会话**: 2026-06-15 — Indigo UI 全面重设计、呼吸过渡动画、侧边栏毛玻璃升级
+- **下次启动提示**: 直接说"继续之前的工作"，Claude 从本文件和 memory/ 恢复上下文
