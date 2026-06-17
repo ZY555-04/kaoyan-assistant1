@@ -4256,12 +4256,8 @@ if st.session_state.page == "main":
                         try:
                             quiz = call_llm_api(prompt, model="mimo-v2.5", max_tokens=2000, temperature=0.2)
                             if quiz and len(quiz) > 20:
-                                rendered = _collapse_math(_fix_latex(quiz))
-                                st.markdown(f"""
-                                <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:12px;padding:20px 22px;font-size:0.90rem;color:#1e293b;line-height:1.85;max-height:650px;overflow-y:auto;">
-                                {rendered}
-                                </div>
-                                """, unsafe_allow_html=True)
+                                with st.container(border=True):
+                                    st.markdown(_escape_md(_collapse_math(_fix_latex(quiz))))
                                 _katex_refresh()
                             else:
                                 st.warning("AI 未能生成题目，请重试")
@@ -4290,12 +4286,8 @@ if st.session_state.page == "main":
                             concept = call_llm_api(prompt, model="mimo-v2.5", max_tokens=600, temperature=0.2)
                             has_numbered = bool(re.search(r'^\d+[\.\、\)\)]', concept, re.MULTILINE)) if concept else False
                             if concept and len(concept) > 10 and has_numbered:
-                                rendered = _collapse_math(_fix_latex(concept))
-                                st.markdown(f"""
-                                <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:12px;padding:20px 22px;font-size:0.90rem;color:#1e293b;line-height:1.85;max-height:650px;overflow-y:auto;">
-                                {rendered}
-                                </div>
-                                """, unsafe_allow_html=True)
+                                with st.container(border=True):
+                                    st.markdown(_escape_md(_collapse_math(_fix_latex(concept))))
                                 _katex_refresh()
                             elif concept and len(concept) > 10 and not has_numbered:
                                 st.warning(f"AI 输出格式异常（未检测到编号行），可能是思维链残留：\n\n{concept[:500]}")
@@ -4409,12 +4401,8 @@ if st.session_state.page == "main":
                             try:
                                 quiz = call_llm_api(prompt, model="mimo-v2.5", max_tokens=2000, temperature=0.2)
                                 if quiz and len(quiz) > 20:
-                                    rendered = _collapse_math(_fix_latex(quiz))
-                                    st.markdown(f"""
-                                    <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:12px;padding:20px 22px;font-size:0.90rem;color:#1e293b;line-height:1.85;max-height:650px;overflow-y:auto;">
-                                    {rendered}
-                                    </div>
-                                    """, unsafe_allow_html=True)
+                                    with st.container(border=True):
+                                        st.markdown(_escape_md(_collapse_math(_fix_latex(quiz))))
                                     _katex_refresh()
                                 else:
                                     st.warning("AI 未能生成题目，请重试")
