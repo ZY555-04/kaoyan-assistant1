@@ -4237,8 +4237,22 @@ if st.session_state.page == "main":
                 with b2:
                     if st.button("出题", key=f"quiz_{doc_id}", use_container_width=True):
                         prompt = f"请根据以下知识点出一道考研数学题，并给出解答：\n{doc_text[:500]}"
-                        quiz = call_llm_api(prompt, model="mimo-v2.5", max_tokens=600)
-                        st.info(quiz)
+                        try:
+                            quiz = call_llm_api(prompt, model="mimo-v2.5", max_tokens=1200, temperature=0.2)
+                            if quiz and len(quiz) > 20:
+                                rendered = _escape_md(_collapse_math(_fix_latex(quiz)))
+                                st.markdown(f"""
+                                <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:12px;padding:20px 22px;font-size:0.90rem;color:#1e293b;line-height:1.85;max-height:650px;overflow-y:auto;white-space:pre-wrap;">
+                                {rendered}
+                                </div>
+                                """, unsafe_allow_html=True)
+                                _katex_refresh()
+                            else:
+                                st.warning("AI 未能生成题目，请重试")
+                        except Exception as e:
+                            st.error(f"出题请求失败: {e}")
+                            if st.session_state.get("debug_mode"):
+                                st.exception(e)
                 with b3:
                     if st.button("概念自测", key=f"concept_{doc_id}", use_container_width=True):
                         prompt = f"""<role>考研数学老师</role>
@@ -4258,17 +4272,21 @@ if st.session_state.page == "main":
 </format>"""
                         try:
                             concept = call_llm_api(prompt, model="mimo-v2.5", max_tokens=600, temperature=0.2)
-                            # 增强验证：检查是否包含至少 1 个编号行
                             has_numbered = bool(re.search(r'^\d+[\.\、\)\)]', concept, re.MULTILINE)) if concept else False
                             if concept and len(concept) > 10 and has_numbered:
-                                st.info(concept)
+                                rendered = _escape_md(_collapse_math(_fix_latex(concept)))
+                                st.markdown(f"""
+                                <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:12px;padding:20px 22px;font-size:0.90rem;color:#1e293b;line-height:1.85;max-height:650px;overflow-y:auto;">
+                                {rendered}
+                                </div>
+                                """, unsafe_allow_html=True)
+                                _katex_refresh()
                             elif concept and len(concept) > 10 and not has_numbered:
                                 st.warning(f"AI 输出格式异常（未检测到编号行），可能是思维链残留：\n\n{concept[:500]}")
                             else:
                                 st.warning("AI 未能生成自测问题，请重试")
                         except Exception as e:
                             st.error(f"概念自测请求失败: {e}")
-                            # 调试模式下显示更多信息
                             if st.session_state.get("debug_mode"):
                                 st.exception(e)
 
@@ -4357,8 +4375,22 @@ if st.session_state.page == "main":
                                 break
                         if doc_text:
                             prompt = f"请根据以下知识点出一道考研数学题，并给出解答：\n{doc_text}"
-                            quiz = call_llm_api(prompt, model="mimo-v2.5", max_tokens=600)
-                            st.info(quiz)
+                            try:
+                                quiz = call_llm_api(prompt, model="mimo-v2.5", max_tokens=1200, temperature=0.2)
+                                if quiz and len(quiz) > 20:
+                                    rendered = _escape_md(_collapse_math(_fix_latex(quiz)))
+                                    st.markdown(f"""
+                                    <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:12px;padding:20px 22px;font-size:0.90rem;color:#1e293b;line-height:1.85;max-height:650px;overflow-y:auto;white-space:pre-wrap;">
+                                    {rendered}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    _katex_refresh()
+                                else:
+                                    st.warning("AI 未能生成题目，请重试")
+                            except Exception as e:
+                                st.error(f"出题请求失败: {e}")
+                                if st.session_state.get("debug_mode"):
+                                    st.exception(e)
 
             if not review_items:
                 st.info("暂无待复习知识点。使用问答后系统会自动记录。")
