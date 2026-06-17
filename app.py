@@ -4321,14 +4321,35 @@ if st.session_state.page == "main":
 3. 问题三
 </format>"""
                         try:
-                            concept = call_llm_api(prompt, model="mimo-v2.5", max_tokens=600, temperature=0.2)
-                            has_numbered = bool(re.search(r'^\d+[\.\、\)\)]', concept, re.MULTILINE)) if concept else False
-                            if concept and len(concept) > 10 and has_numbered:
+                            concept_raw = call_llm_api(prompt, model="mimo-v2.5", max_tokens=600, temperature=0.2)
+                            # === 概念自测专属后处理：只提取有实质内容的编号行 ===
+                            if concept_raw:
+                                valid_lines = []
+                                for line in concept_raw.split('\n'):
+                                    s = line.strip()
+                                    # 必须: 编号 + 非空白内容（至少5个字符的问题才有意义）
+                                    if re.match(r'^\d+[\.\、\)\)]\s*\S.{3,}', s):
+                                        # 排除思维链伪编号: "1. 首先分析" "2. 然后设计" 等
+                                        if not any(kw in s for kw in (
+                                            '首先', '然后', '接着', '最后', '分析', '设计', '考虑',
+                                            '步骤', '思路', '方案', '策略', '方法', '需要', '应该',
+                                            '了解', '掌握', '理解知识点', '回顾', '思考',
+                                        )):
+                                            valid_lines.append(s)
+                                if valid_lines:
+                                    concept = '\n'.join(valid_lines)
+                                else:
+                                    concept = concept_raw  # 没有有效编号行，保留原文
+                            else:
+                                concept = concept_raw
+                            # === 验证 ===
+                            has_valid = bool(valid_lines)
+                            if concept and has_valid and len(concept) > 10:
                                 with st.container(border=True):
                                     st.markdown(_escape_md(_collapse_math(_fix_latex(concept))))
                                 _katex_refresh()
-                            elif concept and len(concept) > 10 and not has_numbered:
-                                st.warning(f"AI 输出格式异常（未检测到编号行），可能是思维链残留：\n\n{concept[:500]}")
+                            elif concept and len(concept) > 10 and not has_valid:
+                                st.warning(f"AI 输出格式异常（未提取到有效问题），可能是思维链残留：\n\n{concept[:500]}")
                             else:
                                 st.warning("AI 未能生成自测问题，请重试")
                         except Exception as e:
