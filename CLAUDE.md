@@ -155,7 +155,7 @@ nohup streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.
 
 > **每次会话结束时更新此章节，下次新会话自动加载。**
 
-- **进行中**: 无
-- **待办**: 无
-- **上次会话**: 2026-06-15 — Indigo UI 全面重设计、呼吸过渡动画、侧边栏毛玻璃升级
-- **下次启动提示**: 直接说"继续之前的工作"，Claude 从本文件和 memory/ 恢复上下文
+- **进行中**: UI 概念自测监控与调试（see plan: sleepy-questing-balloon）
+- **待办**: 启动 app 实测调试面板、收集真实请求日志、定位 MiMo 思维链清洗问题
+- **上次会话**: 2026-06-17 — 个人备份仓库 ZY555-04、call_llm_api 监控日志、_clean_mimo_output 清洗统计、侧边栏调试面板
+- **下次启动提示**: "继续概念自测调试"，或直接说今天的 UI 测试任务

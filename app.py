@@ -16,6 +16,7 @@ from datetime import datetime, date, timedelta
 import urllib.request
 import urllib.error
 import re
+import traceback
 import secrets
 import io
 import kaoyan_predict
@@ -2240,27 +2241,75 @@ def get_feynman_history(user_id, limit=10):
            ORDER BY created_at DESC LIMIT ?""",
         (user_id, limit))
 
+# ========== 调试日志系统 ==========
+def _init_debug_log():
+    """初始化调试日志缓冲区"""
+    if "debug_logs" not in st.session_state:
+        st.session_state.debug_logs = []
+    if "debug_mode" not in st.session_state:
+        st.session_state.debug_mode = False
+
+
+def _append_debug_log(entry):
+    """追加一条调试日志（保留最近 50 条）"""
+    _init_debug_log()
+    st.session_state.debug_logs.append(entry)
+    if len(st.session_state.debug_logs) > 50:
+        st.session_state.debug_logs = st.session_state.debug_logs[-50:]
+
+
 def call_llm_api(prompt, model="mimo-v2.5", max_tokens=2000, temperature=0.3):
-    """调用 LLM API（非流式）"""
+    """调用 LLM API（非流式）+ 调试日志"""
+    _init_debug_log()
+    t0 = datetime.now()
+    log_entry = {
+        "time": t0.strftime("%H:%M:%S"),
+        "model": model,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "prompt_len": len(prompt),
+        "prompt_preview": prompt[:250],
+    }
     data = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": max_tokens,
         "temperature": temperature
     }
-    req = urllib.request.Request(
-        API_BASE + "/chat/completions",
-        data=json.dumps(data).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"},
-        method="POST"
-    )
-    with urllib.request.urlopen(req, timeout=90) as resp:
-        msg = json.loads(resp.read().decode("utf-8"))["choices"][0]["message"]
-        c = msg.get("content")
-        raw_full = c if isinstance(c, str) else ""
-        if not raw_full:
-            raw_full = msg.get("reasoning_content") or ""
-        return _clean_mimo_output(raw_full, prompt)
+    try:
+        req = urllib.request.Request(
+            API_BASE + "/chat/completions",
+            data=json.dumps(data).encode("utf-8"),
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            raw_body = resp.read().decode("utf-8")
+            msg = json.loads(raw_body)["choices"][0]["message"]
+            c = msg.get("content")
+            raw_full = c if isinstance(c, str) else ""
+            if not raw_full:
+                raw_full = msg.get("reasoning_content") or ""
+            # 记录原始响应信息
+            log_entry["raw_content_len"] = len(c) if isinstance(c, str) else 0
+            log_entry["raw_reasoning_len"] = len(msg.get("reasoning_content") or "")
+            log_entry["raw_full_len"] = len(raw_full)
+            log_entry["raw_preview"] = raw_full[:300]
+            # 清洗
+            cleaned = _clean_mimo_output(raw_full, prompt)
+            log_entry["cleaned_len"] = len(cleaned)
+            log_entry["cleaned_preview"] = cleaned[:300]
+            log_entry["elapsed_ms"] = int((datetime.now() - t0).total_seconds() * 1000)
+            log_entry["status"] = "ok"
+            _append_debug_log(log_entry)
+            return cleaned
+    except Exception as e:
+        log_entry["status"] = "error"
+        log_entry["error"] = str(e)
+        log_entry["traceback"] = traceback.format_exc()[-500:]
+        log_entry["elapsed_ms"] = int((datetime.now() - t0).total_seconds() * 1000)
+        _append_debug_log(log_entry)
+        raise
 
 
 def _clean_mimo_output(raw_text, prompt=""):
@@ -2278,18 +2327,26 @@ def _clean_mimo_output(raw_text, prompt=""):
         'Okay', 'Let', 'First', 'I need', 'The user',
     )
     lines = text.split('\n')
+    total_lines = len(lines)
     clean_lines = []
+    filtered_reasons = []  # 记录被过滤的原因
     for line in lines:
         s = line.strip()
         if not s:
             continue
         if s.startswith(_think_starts):
+            filtered_reasons.append(f"think_start: {s[:30]}")
             continue
         if '知识点是' in s or '用户要求' in s or '定义如下' in s:
+            filtered_reasons.append(f"keyword: {s[:30]}")
             continue
         clean_lines.append(line)
+    all_filtered = (len(clean_lines) == 0)
     if not clean_lines:
-        return text  # 全被过滤了，返回原文
+        # 全被过滤了，记录统计后返回原文
+        _record_clean_stats(total_lines, len(lines) - len(clean_lines), 0,
+                           len(lines), False, True, filtered_reasons)
+        return text
     # 3. 找第一个编号行，从那里开始取
     start_idx = 0
     for i, line in enumerate(clean_lines):
@@ -2297,10 +2354,29 @@ def _clean_mimo_output(raw_text, prompt=""):
             start_idx = i
             break
     result_lines = clean_lines[start_idx:]
+    was_truncated = len(result_lines) > 15
     # 4. 如果结果还是太长（>15行），只保留前10行
-    if len(result_lines) > 15:
+    if was_truncated:
         result_lines = result_lines[:10]
+    _record_clean_stats(total_lines, len(lines) - len(clean_lines), start_idx,
+                       len(result_lines), was_truncated, all_filtered, filtered_reasons)
     return '\n'.join(result_lines).strip()
+
+
+def _record_clean_stats(total_lines, filtered_count, start_idx, result_count,
+                        was_truncated, all_filtered, filtered_reasons):
+    """记录清洗统计到最近一条调试日志"""
+    logs = st.session_state.get("debug_logs", [])
+    if logs and logs[-1].get("status") in ("ok", None):
+        logs[-1]["clean_stats"] = {
+            "total_lines": total_lines,
+            "filtered_count": filtered_count,
+            "start_idx": start_idx,
+            "result_count": result_count,
+            "was_truncated": was_truncated,
+            "all_filtered": all_filtered,
+            "filtered_reasons": filtered_reasons[:5],  # 最多保留 5 条原因
+        }
 
 
 def call_llm_stream(prompt, model="mimo-v2.5", max_tokens=800, system_prompt=""):
@@ -3851,6 +3927,50 @@ with st.sidebar:
         st.session_state.page = "hub"
         st.rerun()
 
+    # ===== 调试模式 =====
+    st.markdown("---")
+    debug_on = st.checkbox("🔍 调试模式", value=st.session_state.get("debug_mode", False), key="debug_toggle",
+                           help="开启后记录每次 API 请求的完整链路")
+    st.session_state.debug_mode = debug_on
+    if debug_on:
+        logs = st.session_state.get("debug_logs", [])
+        st.caption(f"📋 已记录 {len(logs)} 条日志")
+        if logs:
+            with st.expander("查看最近日志", expanded=False):
+                for log in reversed(logs[-10:]):
+                    idx = logs.index(log) + 1
+                    status_icon = "✅" if log.get("status") == "ok" else "❌"
+                    elapsed = log.get("elapsed_ms", "?")
+                    st.markdown(
+                        f"**{status_icon} #{idx}** `{log.get('time','?')}` | "
+                        f"{elapsed}ms | `{log.get('model','?')}`"
+                    )
+                    with st.expander(f"#{idx} 详情"):
+                        st.caption(f"**Prompt 预览** ({log.get('prompt_len',0)} 字符)")
+                        st.code(log.get("prompt_preview", "")[:300], language=None)
+                        if log.get("status") == "ok":
+                            st.caption(f"**原始输出** ({log.get('raw_full_len',0)} 字符)")
+                            st.code(log.get("raw_preview", "")[:400], language=None)
+                            cs = log.get("clean_stats", {})
+                            if cs:
+                                st.caption(
+                                    f"**清洗统计**: 总{cs.get('total_lines','?')}行 → "
+                                    f"过滤{cs.get('filtered_count',0)}行 → "
+                                    f"结果{cs.get('result_count',0)}行"
+                                    f"{' ⚠️截断' if cs.get('was_truncated') else ''}"
+                                    f"{' ⚠️全过滤' if cs.get('all_filtered') else ''}"
+                                )
+                                if cs.get("filtered_reasons"):
+                                    st.caption(f"过滤原因: {'; '.join(cs['filtered_reasons'][:3])}")
+                            st.caption(f"**清洗后输出** ({log.get('cleaned_len',0)} 字符)")
+                            st.code(log.get("cleaned_preview", "")[:400], language=None)
+                        else:
+                            st.error(f"**异常**: {log.get('error','')[:300]}")
+                            st.code(log.get("traceback", "")[:400], language=None)
+        if st.button("🗑️ 清空日志", key="clear_debug_logs"):
+            st.session_state.debug_logs = []
+            st.rerun()
+
 # ==================== 数学问答 ====================
 if st.session_state.page == "main":
     if st.button("← 返回首页", key="back_hub_math"):
@@ -4086,11 +4206,21 @@ if st.session_state.page == "main":
 2. 问题二
 3. 问题三
 </format>"""
-                        concept = call_llm_api(prompt, model="mimo-v2.5", max_tokens=600, temperature=0.2)
-                        if concept and len(concept) > 10:
-                            st.info(concept)
-                        else:
-                            st.warning("AI 未能生成自测问题，请重试")
+                        try:
+                            concept = call_llm_api(prompt, model="mimo-v2.5", max_tokens=600, temperature=0.2)
+                            # 增强验证：检查是否包含至少 1 个编号行
+                            has_numbered = bool(re.search(r'^\d+[\.\、\)\)]', concept, re.MULTILINE)) if concept else False
+                            if concept and len(concept) > 10 and has_numbered:
+                                st.info(concept)
+                            elif concept and len(concept) > 10 and not has_numbered:
+                                st.warning(f"AI 输出格式异常（未检测到编号行），可能是思维链残留：\n\n{concept[:500]}")
+                            else:
+                                st.warning("AI 未能生成自测问题，请重试")
+                        except Exception as e:
+                            st.error(f"概念自测请求失败: {e}")
+                            # 调试模式下显示更多信息
+                            if st.session_state.get("debug_mode"):
+                                st.exception(e)
 
                 # 展开的内容区域（更长）
                 if st.session_state.get(f"show_{doc_id}", False):
