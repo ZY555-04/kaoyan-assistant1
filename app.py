@@ -4014,50 +4014,6 @@ with st.sidebar:
         st.session_state.page = "hub"
         st.rerun()
 
-    # ===== 调试模式 =====
-    st.markdown("---")
-    debug_on = st.checkbox("🔍 调试模式", value=st.session_state.get("debug_mode", False), key="debug_toggle",
-                           help="开启后记录每次 API 请求的完整链路")
-    st.session_state.debug_mode = debug_on
-    if debug_on:
-        logs = st.session_state.get("debug_logs", [])
-        st.caption(f"📋 已记录 {len(logs)} 条日志")
-        if logs:
-            with st.expander("查看最近日志", expanded=False):
-                for log in reversed(logs[-10:]):
-                    idx = logs.index(log) + 1
-                    status_icon = "✅" if log.get("status") == "ok" else "❌"
-                    elapsed = log.get("elapsed_ms", "?")
-                    st.markdown(
-                        f"**{status_icon} #{idx}** `{log.get('time','?')}` | "
-                        f"{elapsed}ms | `{log.get('model','?')}`"
-                    )
-                    with st.expander(f"#{idx} 详情"):
-                        st.caption(f"**Prompt 预览** ({log.get('prompt_len',0)} 字符)")
-                        st.code(log.get("prompt_preview", "")[:300], language=None)
-                        if log.get("status") == "ok":
-                            st.caption(f"**原始输出** ({log.get('raw_full_len',0)} 字符)")
-                            st.code(log.get("raw_preview", "")[:400], language=None)
-                            cs = log.get("clean_stats", {})
-                            if cs:
-                                st.caption(
-                                    f"**清洗统计**: 总{cs.get('total_lines','?')}行 → "
-                                    f"过滤{cs.get('filtered_count',0)}行 → "
-                                    f"结果{cs.get('result_count',0)}行"
-                                    f"{' ⚠️截断' if cs.get('was_truncated') else ''}"
-                                    f"{' ⚠️全过滤' if cs.get('all_filtered') else ''}"
-                                )
-                                if cs.get("filtered_reasons"):
-                                    st.caption(f"过滤原因: {'; '.join(cs['filtered_reasons'][:3])}")
-                            st.caption(f"**清洗后输出** ({log.get('cleaned_len',0)} 字符)")
-                            st.code(log.get("cleaned_preview", "")[:400], language=None)
-                        else:
-                            st.error(f"**异常**: {log.get('error','')[:300]}")
-                            st.code(log.get("traceback", "")[:400], language=None)
-        if st.button("🗑️ 清空日志", key="clear_debug_logs"):
-            st.session_state.debug_logs = []
-            st.rerun()
-
 # ==================== 数学问答 ====================
 if st.session_state.page == "main":
     if st.button("← 返回首页", key="back_hub_math"):
