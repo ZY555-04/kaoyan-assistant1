@@ -4290,42 +4290,88 @@ if st.session_state.page == "main":
 （详细解答过程）
 </format>"""
                         try:
-                            quiz_raw = call_llm_api(prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.2)
-                            if quiz_raw and len(quiz_raw) > 20:
-                                # === 出题后处理：三级降级提取 [题目] [解答] ===
+                            # === 出题自纠重试：最多3次，格式不对让AI重新思考 ===
+                            quiz_out = None
+                            last_raw = ""
+                            for attempt in range(3):
+                                if attempt == 0:
+                                    quiz_raw = call_llm_api(prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.2)
+                                elif attempt == 1:
+                                    correct_prompt = f"""<role>考研数学命题专家</role>
+<task>你上一轮的输出格式不符合要求，请严格纠正后重新输出</task>
+<knowledge>
+{doc_text[:500]}
+</knowledge>
+<bad_example>
+以下是你上一轮的错误输出（格式不符合要求）：
+---
+{last_raw[:400]}
+---
+</bad_example>
+<rules>
+- 必须严格使用 [题目] 和 [解答] 两个标记分栏
+- [题目] 下写题目内容，[解答] 下写详细解答
+- 禁止输出任何思考过程、开场白、解释文字
+- 直接从 [题目] 开始输出
+</rules>
+<format>
+[题目]
+（题目内容）
+[解答]
+（详细解答过程）
+</format>"""
+                                    quiz_raw = call_llm_api(correct_prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.2)
+                                else:
+                                    strict_prompt = f"""<role>考研数学命题专家</role>
+<task>这是最后一次机会。你必须严格遵循格式输出题目和解答。</task>
+<knowledge>
+{doc_text[:500]}
+</knowledge>
+<rules>
+- 第一行必须是 [题目]
+- 题目后必须有 [解答]
+- 禁止任何前缀、后缀、思考文字
+- 禁止输出除题目和解答之外的任何内容
+</rules>
+<format>
+[题目]
+（题目内容）
+[解答]
+（详细解答过程）
+</format>"""
+                                    quiz_raw = call_llm_api(strict_prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.1)
+                                last_raw = quiz_raw or ""
+                                # === 格式提取 ===
                                 q_text = a_text = ""
-                                # L1: 严格 [题目]/[解答] 标记
-                                qm = re.search(r'\[题目\]\s*\n?(.*?)(?=\[解答\]|$)', quiz_raw, re.DOTALL)
-                                am = re.search(r'\[解答\]\s*\n?(.*?)$', quiz_raw, re.DOTALL)
+                                qm = re.search(r'\[题目\]\s*\n?(.*?)(?=\[解答\]|$)', quiz_raw or "", re.DOTALL)
+                                am = re.search(r'\[解答\]\s*\n?(.*?)$', quiz_raw or "", re.DOTALL)
                                 if qm: q_text = qm.group(1).strip()
                                 if am: a_text = am.group(1).strip()
-                                # L2: 纯文本 题目：/解答： 降级
                                 if not q_text:
-                                    qm2 = re.search(r'(?:^|\n)\s*题目[：:]\s*(.+?)(?=\n\s*解答[：:]|\Z)', quiz_raw, re.DOTALL)
+                                    qm2 = re.search(r'(?:^|\n)\s*题目[：:]\s*(.+?)(?=\n\s*解答[：:]|\Z)', quiz_raw or "", re.DOTALL)
                                     if qm2: q_text = qm2.group(1).strip()
                                 if not a_text:
-                                    am2 = re.search(r'(?:^|\n)\s*解答[：:]\s*(.+?)(?=\Z)', quiz_raw, re.DOTALL)
+                                    am2 = re.search(r'(?:^|\n)\s*解答[：:]\s*(.+?)(?=\Z)', quiz_raw or "", re.DOTALL)
                                     if am2: a_text = am2.group(1).strip()
-                                has_q = len(q_text) > 5
-                                has_a = len(a_text) > 5
-                                if has_q and has_a:
+                                if len(q_text) > 5 and len(a_text) > 5:
                                     quiz_out = f"**[题目]**\n\n{q_text}\n\n**[解答]**\n\n{a_text}"
-                                    with st.container(border=True):
-                                        st.markdown(_escape_md(_collapse_math(_fix_latex(quiz_out))))
-                                    _katex_refresh()
-                                elif has_q and not has_a:
-                                    st.warning(f"AI 仅生成了题目，缺少解答。请重试。\n\n**[题目]**\n{q_text[:500]}")
-                                elif not has_q and has_a:
-                                    st.warning(f"AI 仅生成了解答，缺少题目。请重试。\n\n**[解答]**\n{a_text[:500]}")
-                                elif len(quiz_raw) > 100:
-                                    # L3: 都没匹配到但内容够长 → 直接展示
-                                    with st.container(border=True):
-                                        st.markdown(_escape_md(_collapse_math(_fix_latex(quiz_raw))))
-                                    _katex_refresh()
-                                else:
-                                    st.warning(f"AI 输出内容不足，请重试：\n\n{quiz_raw[:300]}")
+                                    if attempt > 0:
+                                        quiz_out += f"\n\n*（第{attempt+1}次重试后符合格式）*"
+                                    break
+                            # === 展示结果 ===
+                            if quiz_out:
+                                with st.container(border=True):
+                                    st.markdown(_escape_md(_collapse_math(_fix_latex(quiz_out))))
+                                _katex_refresh()
                             else:
-                                st.warning("AI 未能生成题目，请重试")
+                                # 3次全部失败
+                                st.error("AI 3次尝试均未输出符合格式的 [题目] + [解答]，请手动重试。")
+                                if st.session_state.get("debug_mode"):
+                                    st.text_area("最后一次原始输出", last_raw[:1000], height=200)
+                        except Exception as e:
+                            st.error(f"出题请求失败: {e}")
+                            if st.session_state.get("debug_mode"):
+                                st.exception(e)
                         except Exception as e:
                             st.error(f"出题请求失败: {e}")
                             if st.session_state.get("debug_mode"):
@@ -4470,7 +4516,11 @@ if st.session_state.page == "main":
                                 doc_text = d.get("text", "")[:500]
                                 break
                         if doc_text:
-                            prompt = f"""<role>考研数学命题专家</role>
+                            try:
+                                # === 出题自纠重试：最多3次 ===
+                                quiz_out = None
+                                last_raw = ""
+                                base_prompt = f"""<role>考研数学命题专家</role>
 <task>根据知识点出一道考研数学题，并给出详细解答</task>
 <knowledge>
 {doc_text}
@@ -4486,39 +4536,78 @@ if st.session_state.page == "main":
 [解答]
 （详细解答过程）
 </format>"""
-                            try:
-                                quiz_raw = call_llm_api(prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.2)
-                                if quiz_raw and len(quiz_raw) > 20:
+                                for attempt in range(3):
+                                    if attempt == 0:
+                                        quiz_raw = call_llm_api(base_prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.2)
+                                    elif attempt == 1:
+                                        correct_prompt = f"""<role>考研数学命题专家</role>
+<task>你上一轮的输出格式不符合要求，请严格纠正后重新输出</task>
+<knowledge>
+{doc_text}
+</knowledge>
+<bad_example>
+以下是你上一轮的错误输出（格式不符合要求）：
+---
+{last_raw[:400]}
+---
+</bad_example>
+<rules>
+- 必须严格使用 [题目] 和 [解答] 两个标记分栏
+- [题目] 下写题目内容，[解答] 下写详细解答
+- 禁止输出任何思考过程、开场白、解释文字
+- 直接从 [题目] 开始输出
+</rules>
+<format>
+[题目]
+（题目内容）
+[解答]
+（详细解答过程）
+</format>"""
+                                        quiz_raw = call_llm_api(correct_prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.2)
+                                    else:
+                                        strict_prompt = f"""<role>考研数学命题专家</role>
+<task>这是最后一次机会。你必须严格遵循格式输出题目和解答。</task>
+<knowledge>
+{doc_text}
+</knowledge>
+<rules>
+- 第一行必须是 [题目]
+- 题目后必须有 [解答]
+- 禁止任何前缀、后缀、思考文字
+- 禁止输出除题目和解答之外的任何内容
+</rules>
+<format>
+[题目]
+（题目内容）
+[解答]
+（详细解答过程）
+</format>"""
+                                        quiz_raw = call_llm_api(strict_prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.1)
+                                    last_raw = quiz_raw or ""
                                     q_text = a_text = ""
-                                    qm = re.search(r'\[题目\]\s*\n?(.*?)(?=\[解答\]|$)', quiz_raw, re.DOTALL)
-                                    am = re.search(r'\[解答\]\s*\n?(.*?)$', quiz_raw, re.DOTALL)
+                                    qm = re.search(r'\[题目\]\s*\n?(.*?)(?=\[解答\]|$)', quiz_raw or "", re.DOTALL)
+                                    am = re.search(r'\[解答\]\s*\n?(.*?)$', quiz_raw or "", re.DOTALL)
                                     if qm: q_text = qm.group(1).strip()
                                     if am: a_text = am.group(1).strip()
                                     if not q_text:
-                                        qm2 = re.search(r'(?:^|\n)\s*题目[：:]\s*(.+?)(?=\n\s*解答[：:]|\Z)', quiz_raw, re.DOTALL)
+                                        qm2 = re.search(r'(?:^|\n)\s*题目[：:]\s*(.+?)(?=\n\s*解答[：:]|\Z)', quiz_raw or "", re.DOTALL)
                                         if qm2: q_text = qm2.group(1).strip()
                                     if not a_text:
-                                        am2 = re.search(r'(?:^|\n)\s*解答[：:]\s*(.+?)(?=\Z)', quiz_raw, re.DOTALL)
+                                        am2 = re.search(r'(?:^|\n)\s*解答[：:]\s*(.+?)(?=\Z)', quiz_raw or "", re.DOTALL)
                                         if am2: a_text = am2.group(1).strip()
-                                    has_q = len(q_text) > 5
-                                    has_a = len(a_text) > 5
-                                    if has_q and has_a:
+                                    if len(q_text) > 5 and len(a_text) > 5:
                                         quiz_out = f"**[题目]**\n\n{q_text}\n\n**[解答]**\n\n{a_text}"
-                                        with st.container(border=True):
-                                            st.markdown(_escape_md(_collapse_math(_fix_latex(quiz_out))))
-                                        _katex_refresh()
-                                    elif has_q and not has_a:
-                                        st.warning(f"AI 仅生成了题目，缺少解答。请重试。\n\n**[题目]**\n{q_text[:500]}")
-                                    elif not has_q and has_a:
-                                        st.warning(f"AI 仅生成了解答，缺少题目。请重试。\n\n**[解答]**\n{a_text[:500]}")
-                                    elif len(quiz_raw) > 100:
-                                        with st.container(border=True):
-                                            st.markdown(_escape_md(_collapse_math(_fix_latex(quiz_raw))))
-                                        _katex_refresh()
-                                    else:
-                                        st.warning(f"AI 输出内容不足，请重试：\n\n{quiz_raw[:300]}")
+                                        if attempt > 0:
+                                            quiz_out += f"\n\n*（第{attempt+1}次重试后符合格式）*"
+                                        break
+                                if quiz_out:
+                                    with st.container(border=True):
+                                        st.markdown(_escape_md(_collapse_math(_fix_latex(quiz_out))))
+                                    _katex_refresh()
                                 else:
-                                    st.warning("AI 未能生成题目，请重试")
+                                    st.error("AI 3次尝试均未输出符合格式的 [题目] + [解答]，请手动重试。")
+                                    if st.session_state.get("debug_mode"):
+                                        st.text_area("最后一次原始输出", last_raw[:1000], height=200)
                             except Exception as e:
                                 st.error(f"出题请求失败: {e}")
                                 if st.session_state.get("debug_mode"):
