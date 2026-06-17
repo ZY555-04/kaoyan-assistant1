@@ -2436,10 +2436,10 @@ def _clean_mimo_output(raw_text, prompt="", used_reasoning=False):
             result_lines = non_empty[-half:]
             filtered_reasons.append("reasoning_fb: 后半段兜底")
 
-    # === 截断保护 ===
-    was_truncated = len(result_lines) > 20
+    # === 截断保护（仅极端情况，正常输出应完整保留）===
+    was_truncated = len(result_lines) > 80
     if was_truncated:
-        result_lines = result_lines[:15]
+        result_lines = result_lines[:60]
 
     _record_clean_stats(total_lines, total_lines - len(clean_lines), start_idx,
                        len(result_lines), was_truncated, all_filtered, filtered_reasons,
@@ -4355,8 +4355,6 @@ if st.session_state.page == "main":
                                     if am2: a_text = am2.group(1).strip()
                                 if len(q_text) > 5 and len(a_text) > 5:
                                     quiz_out = f"**[题目]**\n\n{q_text}\n\n**[解答]**\n\n{a_text}"
-                                    if attempt > 0:
-                                        quiz_out += f"\n\n*（第{attempt+1}次重试后符合格式）*"
                                     break
                             # === 展示结果 ===
                             if quiz_out:
@@ -4597,8 +4595,6 @@ if st.session_state.page == "main":
                                         if am2: a_text = am2.group(1).strip()
                                     if len(q_text) > 5 and len(a_text) > 5:
                                         quiz_out = f"**[题目]**\n\n{q_text}\n\n**[解答]**\n\n{a_text}"
-                                        if attempt > 0:
-                                            quiz_out += f"\n\n*（第{attempt+1}次重试后符合格式）*"
                                         break
                                 if quiz_out:
                                     with st.container(border=True):
