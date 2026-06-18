@@ -136,26 +136,27 @@ nohup streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.
 
 ## 最近改动
 
-- **2026-06-15 UI 全面重设计**:
-  - CSS 切换到 Indigo 主题 (#4f46e5/#6366f1)，Design Tokens 体系
-  - Hub 改为 Dashboard 布局：Hero 渐隐标题 + Flow 心流指标 + 4 SVG feature cards + 2 wide cards
-  - 卡片全部 Feather 风格 SVG 图标（四宫格/柱状图/书本/聊天气泡/文档/对勾）
-  - 卡片 `<a href="?p=xxx">` query param 路由，整卡任意位置可点
-  - 侧边栏全局常驻：毛玻璃背景、2 分组标签、Emoji + st.button 导航、流光边框、弹性按钮
-  - 侧边栏用户卡片升级：头像渐变流光 + 打卡天数统计
-  - 6 层呼吸过渡动画系统（breatheIn / cardReveal / sidebarSlideIn / bannerReveal / qaRise / navItemFade）
-  - 页面切换模糊→清晰过渡 + 卡片错开浮现
-- 学习计划 prompt 去「老师」化（朴素理性风格）
-- MiMo API 全量切换（`_extract_content()` 全局修复）
-- pack.py 添加 recommend.py，.gitignore 更新
-- 新建 `启动.bat` / `管理进程.bat`（纯 ASCII，端口轮询，自动开浏览器）
-- Memory 记忆系统配置 + CLAUDE.md 当前任务章节
+- **2026-06-19 费曼评价清洗误伤修复**:
+  - `_clean_mimo_output()` 行级过滤误删评价中的改进建议（如"首先，你需要..."、"这道题的核心是..."、"根据定理..."）
+  - 修复：检测到评价格式标记（`[总分]`/`[概念理解]`/`[解题正确性]`等）时跳过行级过滤
+  - 同时将评价格式标记加入 `_answer_markers`，确保 AI 思考前缀被截断但评价内容完整保留
+
+- **2026-06-18~19 对照橘色原版全面修复** (commit a2a9e34):
+  - **复习窗口**: HTML 固定卡片 → `st.expander` 折叠 + `get_review_candidates()` 遗忘曲线 + `update_memory()` 写 DB + demo 假数据移除
+  - **智能问答核心**: `call_llm_api` 阻塞 → `run_pipeline` 流式 SSE + `_typing_display` 打字效果 + `[ANSWER]/[KNOWLEDGE]` 结构化解析
+  - **Q&A 交互按钮**: 回答下方增加「掌握了」「加入复习库」「生成复习题」三个按钮 + 知识点自动归纳入库
+  - **费曼学习法**: 评分 prompt 切换为结构化 `CONCEPT_EVAL_PROMPT`/`PROBLEM_EVAL_PROMPT` + 正则提取分数 + `save_feynman_record` 持久化 + 历史记录展示 + 图片 OCR 上传
+  - **出题/概念自测**: 知识库卡片按钮 → `session_state` 闭环（出题→生成题目卡→答题→AI评分→保存）；概念自测参考旧版直接用知识点名
+  - 新增 `_record_qa_knowledge()` 函数：问答后自动入库知识点
+  - Expander CSS 修复：去掉 `span:first-child` 的 `font-size:0` 
+  - 全局 emoji 清理（出题/复习/费曼等标签和按钮）
+  - 橘色原版路径: `C:\Users\zy\kaoyan-assistant-橘色原版\app.py`
 
 ## 当前任务
 
 > **每次会话结束时更新此章节，下次新会话自动加载。**
 
 - **进行中**: 无
-- **待办**: 老板 review PR #6 后可能的反馈修改
-- **上次会话**: 2026-06-17~18 — 概念自测+出题 MiMo 思维链清洗重构、自纠重试、KaTeX 渲染、PR #6 已提交
-- **下次启动提示**: "继续之前的工作"
+- **待办**: 老板 review 后进行后续修改；资料显示/文档生成修复（⑥）；错题库功能找回
+- **上次会话**: 2026-06-18~19 — 参考旧版复习窗口/Q&A流式/费曼评分/出题自测/知识点入库全部完成，commit a2a9e34
+- **下次启动提示**: "参考橘色原版继续优化，待办：⑥资料显示文档生成、错题库功能"

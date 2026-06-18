@@ -2352,9 +2352,17 @@ def _clean_mimo_output(raw_text, prompt="", used_reasoning=False):
         '最终答案', '回答如下', '现在回答', '开始答题',
         # 结构化标记（来自 prompt 的 format 要求）
         '[题目]', '[解答]', '[答案]',
+        # 费曼评价格式标记（防止评价内容被后续行过滤误删）
+        '[总分]', '[概念理解]', '[解题正确性]',
         # 英文
         'Answer:', 'Solution:', 'Here is',
     )
+    # 评价输出标记：检测到则跳过行级过滤，保护评价内容完整性
+    _eval_markers = (
+        '[总分]', '[概念理解]', '[解题正确性]', '[解题过程]',
+        '[表达能力]', '[书写真实性]', '[详细评价]', '[改进建议]',
+    )
+    _is_eval_output = any(m in text for m in _eval_markers)
     best_marker_pos = len(text) + 1  # 取最早出现的标记（最小位置）
     for marker in _answer_markers:
         pos = text.find(marker)
@@ -2364,6 +2372,18 @@ def _clean_mimo_output(raw_text, prompt="", used_reasoning=False):
         # 从标记所在行开始截取
         line_start = text.rfind('\n', 0, best_marker_pos)
         text = text[line_start + 1:] if line_start != -1 else text[best_marker_pos:]
+
+    # === 评价输出保护：检测到评价格式标记 → 跳过行级过滤 ===
+    if _is_eval_output:
+        # 评价输出是结构化内容，行级过滤会误删改进建议（如"首先，你需要..."）
+        # 仅保留标记截取后的结果，不做行过滤
+        # 极端长度保护（评价一般不会触发，安全兜底）
+        eval_lines = text.split('\n')
+        if len(eval_lines) > 80:
+            eval_lines = eval_lines[:60]
+        _record_clean_stats(len(text.split('\n')), 0, 0,
+                           len(eval_lines), len(eval_lines) > 80, False, ["eval_protected"])
+        return '\n'.join(eval_lines).strip()
 
     # === 行级过滤 ===
     _think_starts = (
