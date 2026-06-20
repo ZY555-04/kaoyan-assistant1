@@ -3191,133 +3191,24 @@ def _ai_output_to_docx_via_pandoc(markdown_text):
     """用 Pandoc 将 Markdown+LaTeX 转为 DOCX（LaTeX 完美渲染）"""
     import tempfile
     import subprocess
-
-    def _try_subprocess_pandoc(md_path):
-        """尝试用 shell pandoc 转换"""
-        template = str(Path(__file__).parent / "data" / "reference" / "template.docx")
-        docx_path = md_path.replace(".md", ".docx")
+    template = str(Path(__file__).parent / "data" / "reference" / "template.docx")
+    with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w", encoding="utf-8") as md:
+        md.write(markdown_text)
+        md_path = md.name
+    docx_path = md_path.replace(".md", ".docx")
+    try:
         cmd = ["pandoc", md_path, "-o", docx_path, "--mathml", "--from", "markdown", "--to", "docx"]
         if os.path.exists(template):
             cmd += ["--reference-doc", template]
         subprocess.run(cmd, check=True, capture_output=True)
         with open(docx_path, "rb") as f:
             result = f.read()
-        # cleanup
-        try: os.unlink(docx_path)
-        except Exception: pass
         return result
-
-    def _try_pypandoc(md_path):
-        """用 pypandoc_binary 内置的 pandoc 转换"""
-        import pypandoc
-        docx_path = md_path.replace(".md", ".docx")
-        template = str(Path(__file__).parent / "data" / "reference" / "template.docx")
-        extra_args = ["--mathml", "--from", "markdown", "--to", "docx"]
-        if os.path.exists(template):
-            extra_args += ["--reference-doc", template]
-        pypandoc.convert_file(
-            source_file=md_path, to="docx", format="markdown",
-            outputfile=docx_path, extra_args=extra_args
-        )
-        with open(docx_path, "rb") as f:
-            result = f.read()
-        try: os.unlink(docx_path)
-        except Exception: pass
-        return result
-
-    with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w", encoding="utf-8") as md:
-        clean = markdown_text
-        # 去掉所有 Markdown 加粗/粗斜体标记，保留标题层级：
-        # 1. ***粗斜体*** → 内容
-        clean = re.sub(r'\*\*\*(.+?)\*\*\*', r'\1', clean, flags=re.DOTALL)
-        # 2. **加粗** → 内容（跨行匹配）
-        clean = re.sub(r'\*\*(.+?)\*\*', r'\1', clean, flags=re.DOTALL)
-        # 3. __加粗__（下划线语法也是粗体）→ 内容
-        clean = re.sub(r'__(.+?)__', r'\1', clean, flags=re.DOTALL)
-        md.write(clean)
-        md_path = md.name
-
-    try:
-        # 方案1: 优先用 pypandoc_binary（自带 pandoc，不依赖 PATH）
-        try:
-            return _try_pypandoc(md_path)
-        except Exception:
-            pass
-        # 方案2: 尝试 shell pandoc
-        try:
-            return _try_subprocess_pandoc(md_path)
-        except (FileNotFoundError, subprocess.SubprocessError):
-            pass
-        # 方案3: python-docx 兜底（去掉 LaTeX 标记让公式变纯文本）
-        from docx import Document as DocxDoc
-        import re as _re
-        doc = DocxDoc()
-        # 预处理：把 LaTeX 转成可读的纯文本
-        clean_text = markdown_text
-        clean_text = _re.sub(r'\$\$([^$]+)\$\$', r'\1', clean_text)  # $$...$$ → 内容
-        clean_text = _re.sub(r'\$([^$]+)\$', r'\1', clean_text)      # $...$ → 内容
-        clean_text = _re.sub(r'\\frac\{([^}]+)\}\{([^}]+)\}', r'(\1)/(\2)', clean_text)  # \frac{a}{b} → (a)/(b)
-        clean_text = _re.sub(r'\\sqrt\{([^}]+)\}', r'√(\1)', clean_text)  # \sqrt{x} → √(x)
-        clean_text = _re.sub(r'\\int_\{([^}]+)\}\^\{([^}]+)\}', r'∫[\1,\2]', clean_text)  # 积分
-        clean_text = _re.sub(r'\\sum_\{([^}]+)\}\^\{([^}]+)\}', r'∑[\1,\2]', clean_text)  # 求和
-        clean_text = _re.sub(r'\\lim_\{([^}]+)\}', r'lim[\1]', clean_text)
-        clean_text = _re.sub(r'\\alpha', 'α', clean_text)
-        clean_text = _re.sub(r'\\beta', 'β', clean_text)
-        clean_text = _re.sub(r'\\theta', 'θ', clean_text)
-        clean_text = _re.sub(r'\\pi', 'π', clean_text)
-        clean_text = _re.sub(r'\\infty', '∞', clean_text)
-        clean_text = _re.sub(r'\\to', '→', clean_text)
-        clean_text = _re.sub(r'\\rightarrow', '→', clean_text)
-        clean_text = _re.sub(r'\\times', '×', clean_text)
-        clean_text = _re.sub(r'\\cdot', '·', clean_text)
-        clean_text = _re.sub(r'\\pm', '±', clean_text)
-        clean_text = _re.sub(r'\\leq', '≤', clean_text)
-        clean_text = _re.sub(r'\\geq', '≥', clean_text)
-        clean_text = _re.sub(r'\\neq', '≠', clean_text)
-        clean_text = _re.sub(r'\\approx', '≈', clean_text)
-        clean_text = _re.sub(r'\\Delta', 'Δ', clean_text)
-        clean_text = _re.sub(r'\\delta', 'δ', clean_text)
-        clean_text = _re.sub(r'\\lambda', 'λ', clean_text)
-        clean_text = _re.sub(r'\\mu', 'μ', clean_text)
-        clean_text = _re.sub(r'\\sigma', 'σ', clean_text)
-        clean_text = _re.sub(r'\\varphi', 'φ', clean_text)
-        clean_text = _re.sub(r'\\partial', '∂', clean_text)
-        clean_text = _re.sub(r'\\nabla', '∇', clean_text)
-        clean_text = _re.sub(r'\\varepsilon', 'ε', clean_text)
-        clean_text = _re.sub(r'\\omega', 'Ω', clean_text)
-        clean_text = _re.sub(r'\\begin\{[^}]*\}', '', clean_text)
-        clean_text = _re.sub(r'\\end\{[^}]*\}', '', clean_text)
-        clean_text = _re.sub(r'\\text\{([^}]*)\}', r'\1', clean_text)
-        clean_text = _re.sub(r'\\mathbf\{([^}]*)\}', r'\1', clean_text)  # 粗体变普通
-        clean_text = _re.sub(r'\\hat\{([^}]*)\}', r'\1̂', clean_text)
-        clean_text = _re.sub(r'\\bar\{([^}]*)\}', r'\1̄', clean_text)
-        clean_text = _re.sub(r'\\vec\{([^}]*)\}', r'\1⃗', clean_text)
-
-        for line in clean_text.split("\n"):
-            stripped = line.strip()
-            if not stripped:
-                doc.add_paragraph("")
-            elif stripped.startswith("# "):
-                p = doc.add_paragraph(stripped[2:].replace("***", "").replace("**", "").replace("__", ""))
-                p.style = doc.styles["Heading 1"]
-            elif stripped.startswith("## "):
-                p = doc.add_paragraph(stripped[3:].replace("***", "").replace("**", "").replace("__", ""))
-                p.style = doc.styles["Heading 2"]
-            elif stripped.startswith("### "):
-                p = doc.add_paragraph(stripped[4:].replace("***", "").replace("**", "").replace("__", ""))
-                p.style = doc.styles["Heading 3"]
-            elif stripped.startswith("#### "):
-                p = doc.add_paragraph(stripped[5:].replace("***", "").replace("**", "").replace("__", ""))
-                p.style = doc.styles["Heading 4"]
-            else:
-                doc.add_paragraph(stripped.replace("***", "").replace("**", "").replace("__", ""))
-        buf = io.BytesIO()
-        doc.save(buf)
-        buf.seek(0)
-        return buf.read()
     finally:
         if os.path.exists(md_path):
             os.unlink(md_path)
+        if os.path.exists(docx_path):
+            os.unlink(docx_path)
 
 
 
@@ -5123,7 +5014,7 @@ if st.session_state.page == "material":
         # 生成按钮
         gen_col1, gen_col2 = st.columns([1, 3])
         with gen_col1:
-            generate_btn = st.button("🚀 生成资料", type="primary", use_container_width=True, key="mat_gen")
+            generate_btn = st.button("生成资料", type="primary", use_container_width=True, key="mat_gen")
         with gen_col2:
             if not (user_requirement or "").strip():
                 st.caption("💡 在上方输入框中描述你想要的资料类型，然后点击生成")
@@ -5199,7 +5090,7 @@ if st.session_state.page == "material":
 
         eng_col1, eng_col2 = st.columns([1, 3])
         with eng_col1:
-            eng_generate_btn = st.button("🚀 生成资料", type="primary", use_container_width=True, key="eng_gen")
+            eng_generate_btn = st.button("生成资料", type="primary", use_container_width=True, key="eng_gen")
         with eng_col2:
             if not (eng_requirement or "").strip():
                 st.caption("💡 在上方输入框中描述你想要的资料类型，然后点击生成")
