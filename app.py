@@ -617,7 +617,6 @@ st.markdown("""
     div[data-testid="stExpander"] summary p {
         display: inline !important;
     }
-    div[data-testid="stExpander"] details summary > span:first-child,
     div[data-testid="stExpander"] summary svg,
     div[data-testid="stExpander"] summary [data-testid="stIconMaterial"],
     div[data-testid="stExpander"] summary [class*="material"] {
@@ -2353,9 +2352,17 @@ def _clean_mimo_output(raw_text, prompt="", used_reasoning=False):
         '最终答案', '回答如下', '现在回答', '开始答题',
         # 结构化标记（来自 prompt 的 format 要求）
         '[题目]', '[解答]', '[答案]',
+        # 费曼评价格式标记（防止评价内容被后续行过滤误删）
+        '[总分]', '[概念理解]', '[解题正确性]',
         # 英文
         'Answer:', 'Solution:', 'Here is',
     )
+    # 评价输出标记：检测到则跳过行级过滤，保护评价内容完整性
+    _eval_markers = (
+        '[总分]', '[概念理解]', '[解题正确性]', '[解题过程]',
+        '[表达能力]', '[书写真实性]', '[详细评价]', '[改进建议]',
+    )
+    _is_eval_output = any(m in text for m in _eval_markers)
     best_marker_pos = len(text) + 1  # 取最早出现的标记（最小位置）
     for marker in _answer_markers:
         pos = text.find(marker)
@@ -2365,6 +2372,18 @@ def _clean_mimo_output(raw_text, prompt="", used_reasoning=False):
         # 从标记所在行开始截取
         line_start = text.rfind('\n', 0, best_marker_pos)
         text = text[line_start + 1:] if line_start != -1 else text[best_marker_pos:]
+
+    # === 评价输出保护：检测到评价格式标记 → 跳过行级过滤 ===
+    if _is_eval_output:
+        # 评价输出是结构化内容，行级过滤会误删改进建议（如"首先，你需要..."）
+        # 仅保留标记截取后的结果，不做行过滤
+        # 极端长度保护（评价一般不会触发，安全兜底）
+        eval_lines = text.split('\n')
+        if len(eval_lines) > 80:
+            eval_lines = eval_lines[:60]
+        _record_clean_stats(len(text.split('\n')), 0, 0,
+                           len(eval_lines), len(eval_lines) > 80, False, ["eval_protected"])
+        return '\n'.join(eval_lines).strip()
 
     # === 行级过滤 ===
     _think_starts = (
@@ -2652,6 +2671,21 @@ def update_memory(kid, is_mastered, error_type="", mastery_score=0):
 
     conn.commit()
     conn.close()
+
+def _record_qa_knowledge(docs):
+    uid = st.session_state.get("user_id", 1)
+    try:
+        init_memory_db()
+        conn = sqlite3.connect(MEMORY_DB)
+        for doc in docs:
+            kid = doc["id"].replace(".md", "")
+            conn.execute(
+                "INSERT OR IGNORE INTO knowledge_mastery (knowledge_id, user_id, status, stability, last_review) VALUES (?, ?, '学习中', 1.0, ?)",
+                (kid, uid, datetime.now()))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 def get_memory_stats():
     init_memory_db()
@@ -4081,10 +4115,10 @@ if st.session_state.page == "main":
         _ask = st.button("提问", use_container_width=True, type="primary")
 
         if _ask and (_q.strip() or _upload):
-            with st.spinner("AI 正在思考..."):
-                user_input = _q.strip()
-                # 处理图片上传：用 MiMo 多模态识别题目文字
-                if _upload and not user_input:
+            user_input = _q.strip()
+            # 处理图片上传
+            if _upload and not user_input:
+                with st.spinner("正在识别图片..."):
                     import base64 as _b64
                     img_bytes = _upload.read()
                     img_b64 = _b64.b64encode(img_bytes).decode()
@@ -4111,13 +4145,12 @@ if st.session_state.page == "main":
                     except Exception as e:
                         st.error(f"图片识别失败: {e}")
                         user_input = ""
-                elif _upload and user_input:
-                    # 有文本也有图片：附加图片内容到 prompt
+            elif _upload and user_input:
+                with st.spinner("正在分析..."):
                     import base64 as _b64
                     img_bytes = _upload.read()
                     img_b64 = _b64.b64encode(img_bytes).decode()
                     user_input += "\n[附题目截图]"
-                    # 多模态调用：同时传文本和图片
                     corpus = load_corpus()
                     docs = search_corpus(user_input, corpus, top_k=3)
                     style = st.session_state.get("qa_style", "默认")
@@ -4147,38 +4180,146 @@ if st.session_state.page == "main":
                     with urllib.request.urlopen(mm_req, timeout=120) as mm_resp:
                         mm_msg = json.loads(mm_resp.read().decode("utf-8"))["choices"][0]["message"]
                     answer = _extract_content(mm_msg) or "（AI 回复为空，请重试）"
-                    st.markdown("### 回答")
-                    st.markdown(f'<div class="qa-card">{answer}</div>', unsafe_allow_html=True)
-                    if docs:
-                        ref_html = "".join(f'<span class="ref-tag">{d["id"]}</span>' for d in docs)
-                        st.markdown(f'<div style="margin-top:8px;">{ref_html}</div>', unsafe_allow_html=True)
-                    st.stop()
+                st.markdown("### 回答")
+                st.markdown(f'<div class="qa-card">{answer}</div>', unsafe_allow_html=True)
+                if docs:
+                    ref_html = "".join(f'<span class="ref-tag">{d["id"]}</span>' for d in docs)
+                    st.markdown(f'<div style="margin-top:8px;">{ref_html}</div>', unsafe_allow_html=True)
+                    _record_qa_knowledge(docs)
+                st.stop()
 
-                if not user_input:
-                    st.warning("请输入问题或上传题目截图")
-                    st.stop()
+            if not user_input:
+                st.warning("请输入问题或上传题目截图")
+                st.stop()
 
-                corpus = load_corpus()
-                docs = search_corpus(user_input, corpus, top_k=3)
-                style = st.session_state.get("qa_style", "默认")
-                style_hint = "" if style == "默认" else f"请用{style}的方式回答。"
-                prompt = f"""{style_hint}你是考研数学辅导专家。请根据以下参考资料回答用户问题。
+            corpus = load_corpus()
+            docs = search_corpus(user_input, corpus, top_k=3)
 
-用户问题: {user_input}
-
-参考资料:
-"""
-                for i, doc in enumerate(docs):
-                    prompt += f"\n[{i+1}] {doc['id']}: {doc['text'][:800]}\n"
-                prompt += "\n请给出准确、有深度的回答。如有公式请用 LaTeX 格式。"
-                answer = call_llm_api(prompt, model="mimo-v2.5", max_tokens=2000)
+            st.markdown('<div class="qa-card">', unsafe_allow_html=True)
             st.markdown("### 回答")
-            st.markdown(f'<div class="qa-card">{answer}</div>', unsafe_allow_html=True)
+            thinking_placeholder = st.empty()
+            thinking_placeholder.markdown("AI 正在思考...")
+
+            raw_full = ""
+            output = None
+            for event in run_pipeline(user_input, docs, "mimo-v2.5"):
+                if event["type"] == "token":
+                    raw_full += event["content"]
+                elif event["type"] == "done":
+                    output = event["result"]
+
+            thinking_placeholder.empty()
+            answer_text = ""
+            if output and output.get("answer"):
+                answer_text = output["answer"]
+            elif raw_full:
+                if "[ANSWER]" in raw_full:
+                    answer_text = raw_full.split("[ANSWER]", 1)[1]
+                    if "[KNOWLEDGE]" in answer_text:
+                        answer_text = answer_text.split("[KNOWLEDGE]")[0]
+                else:
+                    answer_text = raw_full
+
+            if answer_text.strip():
+                answer_placeholder = st.empty()
+                _typing_display(answer_placeholder, _escape_md(_collapse_math(_fix_latex(answer_text.strip()))), delay=0.02)
+                _katex_refresh()
+                st.session_state._last_answer_text = answer_text.strip()
+            else:
+                thinking_placeholder.markdown("（AI 回复为空，请重试）")
+                st.session_state._last_answer_text = "（AI 回复为空，请重试）"
+            st.markdown('</div>', unsafe_allow_html=True)
+            add_thinking("回答完成")
+            log_visit("提问", user_input[:50])
+
+            # 知识点归纳
+            if output and output.get("knowledge"):
+                validated = []
+                for kid in output["knowledge"]:
+                    match = smart_match_knowledge(kid.strip())
+                    validated.append(match[0] if len(match) > 0 else kid.strip())
+                validated = list(dict.fromkeys(validated))
+                if validated:
+                    for kid in validated:
+                        update_memory(kid, False, error_type="自动归纳")
+                    st.session_state._matched_knowledge = validated
+                    add_thinking(f"自动归纳知识点: {validated}")
+
+            if not st.session_state.get("_matched_knowledge"):
+                matched = smart_match_knowledge(user_input)
+                if matched:
+                    st.session_state._matched_knowledge = matched
+                    for kid in matched:
+                        update_memory(kid, False, error_type="自动归纳")
+                    add_thinking(f"智能匹配知识点: {matched}")
+
+            # 参考来源
             if docs:
+                st.markdown("### 使用的参考资料")
                 ref_html = "".join(f'<span class="ref-tag">{d["id"]}</span>' for d in docs)
+                st.markdown(ref_html, unsafe_allow_html=True)
+                _record_qa_knowledge(docs)
+            else:
+                st.caption("回答来自LLM自身知识")
+
+            # 保存上下文
+            st.session_state._last_query = user_input
+            st.session_state._last_results = docs
+
+        # --- 问答后交互按钮（_ask 块外，rerun 后仍可渲染）---
+        if not (_ask and (_q.strip() or _upload)) and st.session_state.get("_last_answer_text"):
+            st.markdown("### 回答")
+            st.markdown(f'<div class="qa-card">{st.session_state._last_answer_text}</div>', unsafe_allow_html=True)
+            last_results = st.session_state.get("_last_results", [])
+            if last_results:
+                ref_html = "".join(f'<span class="ref-tag">{d["id"]}</span>' for d in last_results)
                 st.markdown(f'<div style="margin-top:8px;">{ref_html}</div>', unsafe_allow_html=True)
 
-        # ── Bottom Tabs ──
+        btn_quiz = st.session_state.pop("_btn_quiz", None)
+        if btn_quiz and btn_quiz.get("success"):
+            st.markdown("#### 练习题")
+            render_qa_cards(btn_quiz['questions'], columns=1, typing=True)
+
+        act_msg = st.session_state.pop("_action_msg", "")
+        if act_msg:
+            st.success(act_msg)
+
+        if st.session_state.get("_last_query"):
+            st.markdown("### 这个回答对你有帮助吗？")
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                if st.button("掌握了", use_container_width=True):
+                    last_results = st.session_state.get("_last_results", [])
+                    if last_results:
+                        for r in last_results:
+                            update_memory(r["id"].replace(".md", ""), True)
+                    else:
+                        m = st.session_state.get("_matched_knowledge") or smart_match_knowledge(st.session_state.get("_last_query", ""))
+                        for kid in (m or []):
+                            update_memory(kid, True)
+                    st.session_state._action_msg = "已记录为掌握！"
+                    st.rerun()
+            with c2:
+                if st.button("加入复习库", use_container_width=True):
+                    m = st.session_state.get("_matched_knowledge") or smart_match_knowledge(st.session_state.get("_last_query", ""))
+                    if m:
+                        for kid in m:
+                            update_memory(kid, False, error_type="用户标记")
+                        st.session_state._action_msg = f"已加入复习库 ({len(m)}个知识点)"
+                    else:
+                        st.session_state._action_msg = "未匹配到具体知识点"
+                    st.rerun()
+            with c3:
+                if st.button("生成复习题", use_container_width=True):
+                    m = st.session_state.get("_matched_knowledge") or smart_match_knowledge(st.session_state.get("_last_query", ""))
+                    if m:
+                        with st.spinner("正在生成题目..."):
+                            st.session_state._btn_quiz = generate_review_questions([{"knowledge_id": k} for k in m[:2]])
+                    else:
+                        st.session_state._action_msg = "未匹配到相关知识点"
+                    st.rerun()
+
+        # --- Bottom Tabs ---
         st.markdown("---")
         _tabs = st.tabs(["知识库", "复习挑战", "费曼学习法", "记忆系统"])
 
@@ -4222,170 +4363,103 @@ if st.session_state.page == "main":
                 </div>
                 """, unsafe_allow_html=True)
 
-                # 按钮行（大尺寸）
+
+                # 按钮行
                 b1, b2, b3 = st.columns([1.5, 1, 1])
                 with b1:
                     if st.button("展开查看", key=f"view_{doc_id}", use_container_width=True):
                         st.session_state[f"show_{doc_id}"] = not st.session_state.get(f"show_{doc_id}", False)
                 with b2:
                     if st.button("出题", key=f"quiz_{doc_id}", use_container_width=True):
-                        prompt = f"""<role>考研数学命题专家</role>
-<task>根据知识点出一道考研数学题，并给出详细解答</task>
-<knowledge>
-{doc_text[:500]}
-</knowledge>
-<rules>
-- 必须同时包含[题目]和[解答]两个部分
-- 题目难度匹配考研真题，解答包含关键公式推导
-- 禁止输出思考过程、开场白、无关讨论
-</rules>
-<format>
-[题目]
-（题目内容）
-[解答]
-（详细解答过程）
-</format>"""
-                        try:
-                            # === 出题自纠重试：最多3次，格式不对让AI重新思考 ===
-                            quiz_out = None
-                            last_raw = ""
-                            for attempt in range(3):
-                                if attempt == 0:
-                                    quiz_raw = call_llm_api(prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.2)
-                                elif attempt == 1:
-                                    correct_prompt = f"""<role>考研数学命题专家</role>
-<task>你上一轮的输出格式不符合要求，请严格纠正后重新输出</task>
-<knowledge>
-{doc_text[:500]}
-</knowledge>
-<bad_example>
-以下是你上一轮的错误输出（格式不符合要求）：
----
-{last_raw[:400]}
----
-</bad_example>
-<rules>
-- 必须严格使用 [题目] 和 [解答] 两个标记分栏
-- [题目] 下写题目内容，[解答] 下写详细解答
-- 禁止输出任何思考过程、开场白、解释文字
-- 直接从 [题目] 开始输出
-</rules>
-<format>
-[题目]
-（题目内容）
-[解答]
-（详细解答过程）
-</format>"""
-                                    quiz_raw = call_llm_api(correct_prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.2)
-                                else:
-                                    strict_prompt = f"""<role>考研数学命题专家</role>
-<task>这是最后一次机会。你必须严格遵循格式输出题目和解答。</task>
-<knowledge>
-{doc_text[:500]}
-</knowledge>
-<rules>
-- 第一行必须是 [题目]
-- 题目后必须有 [解答]
-- 禁止任何前缀、后缀、思考文字
-- 禁止输出除题目和解答之外的任何内容
-</rules>
-<format>
-[题目]
-（题目内容）
-[解答]
-（详细解答过程）
-</format>"""
-                                    quiz_raw = call_llm_api(strict_prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.1)
-                                last_raw = quiz_raw or ""
-                                # === 格式提取 ===
-                                q_text = a_text = ""
-                                qm = re.search(r'\[题目\]\s*\n?(.*?)(?=\[解答\]|$)', quiz_raw or "", re.DOTALL)
-                                am = re.search(r'\[解答\]\s*\n?(.*?)$', quiz_raw or "", re.DOTALL)
-                                if qm: q_text = qm.group(1).strip()
-                                if am: a_text = am.group(1).strip()
-                                if not q_text:
-                                    qm2 = re.search(r'(?:^|\n)\s*题目[：:]\s*(.+?)(?=\n\s*解答[：:]|\Z)', quiz_raw or "", re.DOTALL)
-                                    if qm2: q_text = qm2.group(1).strip()
-                                if not a_text:
-                                    am2 = re.search(r'(?:^|\n)\s*解答[：:]\s*(.+?)(?=\Z)', quiz_raw or "", re.DOTALL)
-                                    if am2: a_text = am2.group(1).strip()
-                                if len(q_text) > 5 and len(a_text) > 5:
-                                    quiz_out = f"**[题目]**\n\n{q_text}\n\n**[解答]**\n\n{a_text}"
-                                    break
-                            # === 展示结果 ===
-                            if quiz_out:
-                                with st.container(border=True):
-                                    st.markdown(_escape_md(_collapse_math(_fix_latex(quiz_out))))
-                                _katex_refresh()
-                            else:
-                                # 3次全部失败
-                                st.error("AI 3次尝试均未输出符合格式的 [题目] + [解答]，请手动重试。")
-                                if st.session_state.get("debug_mode"):
-                                    st.text_area("最后一次原始输出", last_raw[:1000], height=200)
-                        except Exception as e:
-                            st.error(f"出题请求失败: {e}")
-                            if st.session_state.get("debug_mode"):
-                                st.exception(e)
-                        except Exception as e:
-                            st.error(f"出题请求失败: {e}")
-                            if st.session_state.get("debug_mode"):
-                                st.exception(e)
+                        _hint = st.empty()
+                        _hint.markdown('<div style="display:flex;align-items:center;gap:8px;padding:6px 0"><div style="width:14px;height:14px;border:2px solid #e2e8f0;border-top-color:#94a3b8;border-radius:50%;animation:sp06 .6s linear infinite"></div><span style="font-size:.78rem;color:#64748b">AI 正在出题思考中...</span></div><style>@keyframes sp06{to{transform:rotate(360deg)}}</style>', unsafe_allow_html=True)
+                        st.session_state._kb_quiz = generate_review_questions([{"knowledge_id": doc_id}])
+                        _hint.empty()
+                        st.session_state._kb_qid = doc_id
+                        st.rerun()
                 with b3:
                     if st.button("概念自测", key=f"concept_{doc_id}", use_container_width=True):
-                        prompt = f"""<role>考研数学老师</role>
-<task>根据知识点生成3个概念自测问题，检验学生是否真正理解</task>
-<knowledge>
-{doc_text[:350]}
-</knowledge>
-<rules>
-- 每个问题不超过25字
-- 只输出3行，每行以序号开头
-- 禁止输出分析、解释、开场白、思考过程
-- 直接从问题列表开始输出，不要任何前缀文字
-</rules>
-<format>
-[输出]
-1. 问题一
-2. 问题二
-3. 问题三
-</format>"""
-                        try:
-                            concept_raw = call_llm_api(prompt, model="mimo-v2.5", max_tokens=600, temperature=0.2)
-                            # === 概念自测专属后处理：只提取有实质内容的编号行 ===
-                            if concept_raw:
-                                valid_lines = []
-                                for line in concept_raw.split('\n'):
-                                    s = line.strip()
-                                    # 必须: 编号 + 非空白内容（至少5个字符的问题才有意义）
-                                    if re.match(r'^\d+[\.\、\)\)]\s*\S.{3,}', s):
-                                        # 排除思维链伪编号: "1. 首先分析" "2. 然后设计" 等
-                                        if not any(kw in s for kw in (
-                                            '首先', '然后', '接着', '最后', '分析', '设计', '考虑',
-                                            '步骤', '思路', '方案', '策略', '方法', '需要', '应该',
-                                            '了解', '掌握', '理解知识点', '回顾', '思考',
-                                        )):
-                                            valid_lines.append(s)
-                                if valid_lines:
-                                    concept = '\n'.join(valid_lines)
-                                else:
-                                    concept = concept_raw  # 没有有效编号行，保留原文
-                            else:
-                                concept = concept_raw
-                            # === 验证 ===
-                            has_valid = bool(valid_lines)
-                            if concept and has_valid and len(concept) > 10:
-                                with st.container(border=True):
-                                    st.markdown(_escape_md(_collapse_math(_fix_latex(concept))))
-                                _katex_refresh()
-                            elif concept and len(concept) > 10 and not has_valid:
-                                st.warning(f"AI 输出格式异常（未提取到有效问题），可能是思维链残留：\n\n{concept[:500]}")
-                            else:
-                                st.warning("AI 未能生成自测问题，请重试")
-                        except Exception as e:
-                            st.error(f"概念自测请求失败: {e}")
-                            if st.session_state.get("debug_mode"):
-                                st.exception(e)
+                        st.session_state._kb_concept_qid = doc_id
+                        st.rerun()
 
+
+                # --- 出题：题目卡片 + 答题 + AI 评分 ---
+                if st.session_state.get("_kb_qid") == doc_id:
+                    quiz = st.session_state.get("_kb_quiz")
+                    if st.session_state.get("_kb_result"):
+                        st.markdown("### 评分结果")
+                        st.markdown(_escape_md(_collapse_math(_fix_latex(st.session_state._kb_result))))
+                        if st.button("关闭", key=f"quiz_close_res_{doc_id}"):
+                            st.session_state.pop("_kb_result", None)
+                            st.session_state.pop("_kb_qid", None)
+                            st.rerun()
+                    elif quiz and quiz.get("success"):
+                        render_qa_cards(quiz['questions'], columns=1, typing=True)
+                        ans = st.text_area("你的解法", key=f"quiz_ans_{doc_id}", height=150,
+                            placeholder="写下你的解题思路和答案...")
+                        if st.button("提交自测", key=f"quiz_sub_{doc_id}"):
+                            if ans.strip():
+                                with st.spinner("AI 正在评分..."):
+                                    try:
+                                        prompt = PROBLEM_EVAL_PROMPT.format(question=quiz['questions'], answer=ans)
+                                        result = call_llm_api(prompt, model="mimo-v2.5")
+                                        total = 0; sc = 0; se = 0; sa = 0
+                                        m = re.search(r'\[总分\]\s*(\d+)/(\d+)分', result)
+                                        if m: total = int(m.group(1))
+                                        m = re.search(r'\[解题正确性\]\s*(\d+)/(\d+)分', result)
+                                        if m: sc = int(m.group(1))
+                                        m = re.search(r'\[解题过程\]\s*(\d+)/(\d+)分', result)
+                                        if m: se = int(m.group(1))
+                                        m = re.search(r'\[书写真实性\]\s*(\d+)/(\d+)分', result)
+                                        if m: sa = int(m.group(1))
+                                        q_raw = quiz['questions']
+                                        qm = re.search(r'Q:\s*(.+)', q_raw)
+                                        display_q = qm.group(1).strip()[:300] if qm else q_raw[:300]
+                                        save_feynman_record(st.session_state.get("user_id", 1), "problem", display_q, ans, result, sc, se, sa, total)
+                                        st.session_state._kb_result = result
+                                        st.session_state._kb_quiz = None
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"评价失败: {e}")
+                            else:
+                                st.warning("请输入你的解法")
+
+                # --- 概念自测：答题 + AI 评分（照搬旧版，用知识点名当题目）---
+                if st.session_state.get("_kb_concept_qid") == doc_id:
+                    if st.session_state.get("_kb_concept_result"):
+                        st.markdown("### 评分结果")
+                        st.markdown(_escape_md(_collapse_math(_fix_latex(st.session_state._kb_concept_result))))
+                        if st.button("关闭", key=f"concept_close_res_{doc_id}"):
+                            st.session_state.pop("_kb_concept_result", None)
+                            st.session_state.pop("_kb_concept_qid", None)
+                            st.rerun()
+                    elif not st.session_state.get("_kb_concept_result"):
+                        concept_quiz_text = f"概念自测：{clean_name}"
+                        st.info(concept_quiz_text)
+                        ans = st.text_area("你的回答", key=f"concept_ans_{doc_id}", height=120,
+                            placeholder="用自己的话解释这个概念...")
+                        if st.button("提交自测", key=f"concept_sub_{doc_id}"):
+                            if ans.strip():
+                                with st.spinner("AI 正在评分..."):
+                                    try:
+                                        prompt = CONCEPT_EVAL_PROMPT.format(question=concept_quiz_text, answer=ans)
+                                        result = call_llm_api(prompt, model="mimo-v2.5")
+                                        total = 0; sc = 0; se = 0; sa = 0
+                                        m = re.search(r'\[总分\]\s*(\d+)/(\d+)分', result)
+                                        if m: total = int(m.group(1))
+                                        m = re.search(r'\[概念理解\]\s*(\d+)/(\d+)分', result)
+                                        if m: sc = int(m.group(1))
+                                        m = re.search(r'\[表达能力\]\s*(\d+)/(\d+)分', result)
+                                        if m: se = int(m.group(1))
+                                        m = re.search(r'\[书写真实性\]\s*(\d+)/(\d+)分', result)
+                                        if m: sa = int(m.group(1))
+                                        save_feynman_record(st.session_state.get("user_id", 1), "concept", concept_quiz_text, ans, result, sc, se, sa, total)
+                                        st.session_state._kb_concept_result = result
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"评价失败: {e}")
+                            else:
+                                st.warning("请输入你的回答")
                 # 展开的内容区域（更长）
                 if st.session_state.get(f"show_{doc_id}", False):
                     st.markdown(f"""
@@ -4396,201 +4470,143 @@ if st.session_state.page == "main":
 
         with _tabs[1]:
             st.markdown("""
-            <div style="font-size:0.88rem;font-weight:700;color:#1e293b;margin-bottom:12px;">遗忘曲线复习候选</div>
+            <div style="font-size:0.88rem;font-weight:700;color:#1e293b;margin-bottom:12px;">复习挑战</div>
             """, unsafe_allow_html=True)
 
-            # 从数据库读取需要复习的知识点
-            uid = st.session_state.get("user_id")
-            review_items = []
-            if uid:
-                try:
-                    init_memory_db()
-                    conn = sqlite3.connect(MEMORY_DB)
-                    cur = conn.execute(
-                        "SELECT knowledge_id, mastery_level, times_correct, times_wrong, error_type, last_review "
-                        "FROM knowledge_mastery WHERE user_id=? AND mastery_level < 60 AND status != '已掌握' "
-                        "ORDER BY mastery_level ASC, last_review ASC LIMIT 10",
-                        (uid,))
-                    for row in cur.fetchall():
-                        kid, ml, tc, tw, et, lr = row
-                        # 从语料库中查找知识点名称
-                        corpus = load_corpus()
-                        name = kid
-                        desc = ""
-                        for doc in corpus:
-                            if kid in doc.get("id", ""):
-                                name = doc["id"].replace(".md", "").replace("_", " ")
-                                desc = doc.get("text", "")[:200]
-                                break
-                        review_items.append({
-                            "kid": kid, "name": name, "mem": max(10, int(ml or 0)),
-                            "desc": desc or f"正确{tw or 0}次 · 错误{tw or 0}次",
-                            "correct": tw or 0, "wrong": tw or 0
-                        })
-                    conn.close()
-                except Exception:
-                    pass
+            corpus = load_corpus()
+            candidates = get_review_candidates()
 
-            if not review_items:
-                # demo fallback
-                review_items = [
-                    {"kid": "001", "name": "泰勒公式与麦克劳林展开", "mem": 45, "desc": "泰勒公式用于将函数在某点附近展开为多项式形式。麦克劳林展开是 x=0 处的特例。", "correct": 3, "wrong": 2},
-                    {"kid": "006", "name": "矩阵的特征值与特征向量", "mem": 62, "desc": "特征值与特征向量用于矩阵对角化、二次型标准化。", "correct": 5, "wrong": 4},
-                    {"kid": "012", "name": "拉格朗日中值定理", "mem": 38, "desc": "拉格朗日中值定理是微分学核心定理之一。", "correct": 2, "wrong": 3},
-                ]
+            if candidates:
+                for i, c in enumerate(candidates, 1):
+                    recall_pct = int(c['recall'] * 100)
+                    with st.expander(f"第{i}题: {_clean_knowledge_name(c['knowledge_id'])[:35]} (记忆: {recall_pct}%)"):
+                        knowledge_text = get_knowledge_text(c['knowledge_id'], corpus)
+                        st.markdown(knowledge_text[:1500])
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            if st.button("掌握", key=f"rev_m_{i}"):
+                                update_memory(c['knowledge_id'], True)
+                                st.rerun()
+                        with c2:
+                            if st.button("再练", key=f"rev_w_{i}"):
+                                update_memory(c['knowledge_id'], False, error_type="遗忘")
+                                st.rerun()
+                        with c3:
+                            if st.button("出题", key=f"rev_gen_{i}"):
+                                with st.spinner("正在生成题目..."):
+                                    gen_r = generate_review_questions([{"knowledge_id": c['knowledge_id']}])
+                                st.session_state._rev_quiz = gen_r
+                                st.session_state._rev_quiz_id = i
+                                st.rerun()
 
-            for item in review_items:
-                mem = item["mem"]
-                _mem_color = "#10b981" if mem >= 60 else ("#f59e0b" if mem >= 40 else "#ef4444")
-                kid = item["kid"]
-                st.markdown(f"""
-                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;margin-bottom:8px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                        <span style="font-weight:600;font-size:0.88rem;color:#1e293b;">{item['name']}</span>
-                        <span style="font-size:0.78rem;padding:4px 10px;background:{_mem_color}15;color:{_mem_color};border-radius:20px;font-weight:600;">记忆率 {mem}%</span>
-                    </div>
-                    <div style="font-size:0.82rem;color:#64748b;margin-bottom:10px;max-height:120px;overflow-y:auto;">{item['desc']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                b1, b2, b3 = st.columns(3)
-                with b1:
-                    if st.button("✅ 掌握", key=f"rev_ok_{kid}", use_container_width=True):
-                        st.session_state["mastered_count"] = st.session_state.get("mastered_count", 0) + 1
-                        st.success(f"已标记 {item['name']} 为掌握！")
-                        st.rerun()
-                with b2:
-                    if st.button("🔄 再练", key=f"rev_retry_{kid}", use_container_width=True):
-                        st.info(f"已将 {item['name']} 加入再练列表")
-                with b3:
-                    if st.button("🎲 出题", key=f"rev_quiz_{kid}", use_container_width=True):
-                        corpus = load_corpus()
-                        doc_text = ""
-                        for d in corpus:
-                            if kid in d.get("id", ""):
-                                doc_text = d.get("text", "")[:500]
-                                break
-                        if doc_text:
-                            try:
-                                # === 出题自纠重试：最多3次 ===
-                                quiz_out = None
-                                last_raw = ""
-                                base_prompt = f"""<role>考研数学命题专家</role>
-<task>根据知识点出一道考研数学题，并给出详细解答</task>
-<knowledge>
-{doc_text}
-</knowledge>
-<rules>
-- 必须同时包含[题目]和[解答]两个部分
-- 题目难度匹配考研真题，解答包含关键公式推导
-- 禁止输出思考过程、开场白、无关讨论
-</rules>
-<format>
-[题目]
-（题目内容）
-[解答]
-（详细解答过程）
-</format>"""
-                                for attempt in range(3):
-                                    if attempt == 0:
-                                        quiz_raw = call_llm_api(base_prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.2)
-                                    elif attempt == 1:
-                                        correct_prompt = f"""<role>考研数学命题专家</role>
-<task>你上一轮的输出格式不符合要求，请严格纠正后重新输出</task>
-<knowledge>
-{doc_text}
-</knowledge>
-<bad_example>
-以下是你上一轮的错误输出（格式不符合要求）：
----
-{last_raw[:400]}
----
-</bad_example>
-<rules>
-- 必须严格使用 [题目] 和 [解答] 两个标记分栏
-- [题目] 下写题目内容，[解答] 下写详细解答
-- 禁止输出任何思考过程、开场白、解释文字
-- 直接从 [题目] 开始输出
-</rules>
-<format>
-[题目]
-（题目内容）
-[解答]
-（详细解答过程）
-</format>"""
-                                        quiz_raw = call_llm_api(correct_prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.2)
-                                    else:
-                                        strict_prompt = f"""<role>考研数学命题专家</role>
-<task>这是最后一次机会。你必须严格遵循格式输出题目和解答。</task>
-<knowledge>
-{doc_text}
-</knowledge>
-<rules>
-- 第一行必须是 [题目]
-- 题目后必须有 [解答]
-- 禁止任何前缀、后缀、思考文字
-- 禁止输出除题目和解答之外的任何内容
-</rules>
-<format>
-[题目]
-（题目内容）
-[解答]
-（详细解答过程）
-</format>"""
-                                        quiz_raw = call_llm_api(strict_prompt, model="mimo-v2.5", max_tokens=3000, temperature=0.1)
-                                    last_raw = quiz_raw or ""
-                                    q_text = a_text = ""
-                                    qm = re.search(r'\[题目\]\s*\n?(.*?)(?=\[解答\]|$)', quiz_raw or "", re.DOTALL)
-                                    am = re.search(r'\[解答\]\s*\n?(.*?)$', quiz_raw or "", re.DOTALL)
-                                    if qm: q_text = qm.group(1).strip()
-                                    if am: a_text = am.group(1).strip()
-                                    if not q_text:
-                                        qm2 = re.search(r'(?:^|\n)\s*题目[：:]\s*(.+?)(?=\n\s*解答[：:]|\Z)', quiz_raw or "", re.DOTALL)
-                                        if qm2: q_text = qm2.group(1).strip()
-                                    if not a_text:
-                                        am2 = re.search(r'(?:^|\n)\s*解答[：:]\s*(.+?)(?=\Z)', quiz_raw or "", re.DOTALL)
-                                        if am2: a_text = am2.group(1).strip()
-                                    if len(q_text) > 5 and len(a_text) > 5:
-                                        quiz_out = f"**[题目]**\n\n{q_text}\n\n**[解答]**\n\n{a_text}"
-                                        break
-                                if quiz_out:
-                                    with st.container(border=True):
-                                        st.markdown(_escape_md(_collapse_math(_fix_latex(quiz_out))))
-                                    _katex_refresh()
-                                else:
-                                    st.error("AI 3次尝试均未输出符合格式的 [题目] + [解答]，请手动重试。")
-                                    if st.session_state.get("debug_mode"):
-                                        st.text_area("最后一次原始输出", last_raw[:1000], height=200)
-                            except Exception as e:
-                                st.error(f"出题请求失败: {e}")
-                                if st.session_state.get("debug_mode"):
-                                    st.exception(e)
+                    if st.session_state.get("_rev_quiz_id") == i:
+                        quiz = st.session_state.pop("_rev_quiz", None)
+                        st.session_state.pop("_rev_quiz_id", None)
+                        if quiz and quiz.get("success"):
+                            render_qa_cards(quiz['questions'], columns=1)
 
-            if not review_items:
-                st.info("暂无待复习知识点。使用问答后系统会自动记录。")
+            if not candidates:
+                st.success("暂无待复习知识点。使用问答后自动添加。")
 
         with _tabs[2]:
             st.markdown("""
             <div style="font-size:0.88rem;font-weight:700;color:#1e293b;margin-bottom:12px;">费曼学习法</div>
             <div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:0.82rem;color:#4f46e5;margin-bottom:14px;">
-                选择模式 → 输入题目或上传图片 → 写下你的答案 → AI 评价
+                选择模式 -> 输入题目或上传图片 -> 写下你的答案 -> AI 评价
             </div>
             """, unsafe_allow_html=True)
-            _fm = st.radio("模式", ["概念理解", "解题练习"], horizontal=True, key="feynman_mode")
-            f1, f2 = st.columns(2)
-            with f1:
-                st.markdown('<div style="font-size:0.82rem;font-weight:600;color:#64748b;margin-bottom:4px;">输入题目</div>', unsafe_allow_html=True)
-                _ftopic = st.text_area("题目", placeholder="例如：什么是洛必达法则？\n或：求函数 f(x)=x³-3x+2 的极值", key="feynman_topic", label_visibility="collapsed")
-            with f2:
-                st.markdown('<div style="font-size:0.82rem;font-weight:600;color:#64748b;margin-bottom:4px;">你的答案</div>', unsafe_allow_html=True)
-                _fanswer = st.text_area("答案", placeholder="用自己的话写下答案...\n\n提示：尽量用自己的语言表达，展示你的理解过程。", key="feynman_answer", label_visibility="collapsed", height=200)
-            if st.button("提交答案", use_container_width=True, type="primary"):
-                if _ftopic and _fanswer:
-                    prompt = f"""你是考研辅导专家。请评价学生对以下题目的回答。
-题目: {_ftopic}
-学生答案: {_fanswer}
-请给出总评分(满分20)和分项评价(概念理解/表达能力)，指出不足并鼓励。"""
-                    result = call_llm_api(prompt, model="mimo-v2.5", max_tokens=600)
-                    st.success(result)
+
+            _fm = st.radio("学习模式", ["概念理解", "解题练习"], horizontal=True, key="feynman_mode")
+            mode_key = "concept" if _fm == "概念理解" else "problem"
+
+            col_input, col_img = st.columns(2)
+            with col_input:
+                _ftopic = st.text_area("输入题目", height=100,
+                    placeholder="例如：什么是洛必达法则？\n或：求函数 f(x)=x^3-3x+2 的极值",
+                    key="feynman_topic")
+            with col_img:
+                st.markdown('<div style="font-size:0.82rem;font-weight:600;color:#64748b;margin-bottom:4px;">或上传题目图片</div>', unsafe_allow_html=True)
+                _fimg = st.file_uploader("上传图片", type=["png", "jpg", "jpeg"], key="feynman_img", label_visibility="collapsed")
+                if _fimg is not None:
+                    img_b64 = base64.b64encode(_fimg.getvalue()).decode()
+                    if st.button("识别图片文字", key="feynman_ocr", use_container_width=True):
+                        with st.spinner("识别中..."):
+                            try:
+                                ocr_data = {"model": "mimo-v2.5", "messages": [
+                                    {"role": "user", "content": [
+                                        {"type": "text", "text": "请识别这张图片中的数学题目内容，只输出题目文字。"},
+                                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
+                                    ]}
+                                ], "max_tokens": 1000, "temperature": 0}
+                                req = urllib.request.Request(API_BASE + "/chat/completions",
+                                    data=json.dumps(ocr_data).encode("utf-8"),
+                                    headers={"Content-Type": "application/json", "Authorization": f"Bearer {API_KEY}"},
+                                    method="POST")
+                                with urllib.request.urlopen(req, timeout=30) as resp:
+                                    ocr_result = _extract_content(json.loads(resp.read().decode("utf-8"))["choices"][0]["message"])
+                                st.session_state._feynman_ocr = ocr_result
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"识别失败: {e}")
+                if st.session_state.get("_feynman_ocr"):
+                    _ftopic = st.session_state.pop("_feynman_ocr")
+
+            _fanswer = st.text_area("你的答案", height=200,
+                placeholder="用自己的话写下答案...\n\n提示：尽量用自己的语言表达，展示你的理解过程。",
+                key="feynman_answer")
+
+            if st.button("提交答案", key="feynman_submit", use_container_width=True, type="primary"):
+                if not _ftopic.strip():
+                    st.warning("请输入题目内容")
+                elif not _fanswer.strip():
+                    st.warning("请输入你的答案")
+                else:
+                    with st.spinner("AI 正在评价..."):
+                        try:
+                            if mode_key == "concept":
+                                eval_prompt = CONCEPT_EVAL_PROMPT
+                            else:
+                                eval_prompt = PROBLEM_EVAL_PROMPT
+                            prompt = eval_prompt.format(question=_ftopic, answer=_fanswer)
+                            result = call_llm_api(prompt, model="mimo-v2.5")
+
+                            score_correct = 0; score_expression = 0; score_authentic = 0; total_score = 0
+                            m = re.search(r'\[总分\]\s*(\d+)/(\d+)分', result)
+                            if m: total_score = int(m.group(1))
+                            m = re.search(r'\[(?:概念理解|解题正确性)\]\s*(\d+)/(\d+)分', result)
+                            if m: score_correct = int(m.group(1))
+                            m = re.search(r'\[(?:表达能力|解题过程)\]\s*(\d+)/(\d+)分', result)
+                            if m: score_expression = int(m.group(1))
+                            m = re.search(r'\[书写真实性\]\s*(\d+)/(\d+)分', result)
+                            if m: score_authentic = int(m.group(1))
+
+                            save_feynman_record(
+                                st.session_state.get("user_id", 1),
+                                mode_key, _ftopic, _fanswer, result,
+                                score_correct, score_expression, score_authentic, total_score)
+
+                            st.markdown("---")
+                            st.markdown("### 评价结果")
+                            st.markdown(_escape_md(_collapse_math(_fix_latex(result))))
+                        except Exception as e:
+                            st.error(f"评价失败: {e}")
+
+            st.markdown("---")
+            st.markdown("### 历史记录")
+            feynman_history = get_feynman_history(st.session_state.get("user_id", 1))
+            if feynman_history:
+                for record in feynman_history:
+                    mode_label = "概念" if record["mode"] == "concept" else "解题"
+                    score = record["total_score"] or 0
+                    time_str = str(record["created_at"])[:16]
+                    q_text = record["question_text"] or "(概念自测)"
+                    with st.expander(f"[{mode_label}] {q_text[:40]}... | {score}分 | {time_str}"):
+                        st.markdown(f"**题目**: {q_text}")
+                        st.markdown(f"**你的答案**: {record['user_answer']}")
+                        st.markdown("---")
+                        st.markdown(_escape_md(_collapse_math(_fix_latex(record["ai_evaluation"] or ""))))
+            else:
+                st.info("暂无记录，开始你的第一次练习吧！")
 
         with _tabs[3]:
             st.markdown("""
@@ -6360,7 +6376,9 @@ with tab1:
                 c1, c2 = st.columns(2)
                 with c1:
                     if st.button("🎲 出题", key=f"kb_s_{kid}", use_container_width=True):
+                        _bar = st.progress(0, text="AI 正在出题思考中...")
                         st.session_state._kb_quiz = generate_review_questions([{"knowledge_id": kid}])
+                        _bar.progress(100, text="完成")
                         st.session_state._kb_qid = kid
                         st.rerun()
                 with c2:
@@ -6451,7 +6469,9 @@ with tab1:
                 c1, c2 = st.columns(2)
                 with c1:
                     if st.button("🎲 出题", key=f"kb_d_{kid}", use_container_width=True):
+                        _bar = st.progress(0, text="AI 正在出题思考中...")
                         st.session_state._kb_quiz = generate_review_questions([{"knowledge_id": kid}])
+                        _bar.progress(100, text="完成")
                         st.session_state._kb_qid = kid
                         st.rerun()
                 with c2:
