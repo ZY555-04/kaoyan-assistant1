@@ -136,6 +136,11 @@ nohup streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.
 
 ## 最近改动
 
+- **2026-06-19 出题按钮增加 AI 思考状态提示**:
+  - 数学问答知识库出题按钮点击后，原位显示灰蓝色旋转提示"AI 正在出题思考中..."
+  - 经历 4 次迭代：st.spinner（页面顶部不可见）→ st.info（太重）→ st.progress（太蓝）→ 自定义 HTML spinner（#94a3b8）
+  - 仅改数学问答知识库 Tab 一处（4374行），独立知识库页两处保持 st.progress
+
 - **2026-06-19 同步橘色原版缺失的 Skills**:
   - 从 `kaoyan-assistant-橘色原版` 复制了 3 个缺失的 skill 到新版 `skills/`:
     - `latex-formatter` (LaTeX规范) — **关键修复**：新版代码引用此 skill 但文件缺失，导致资料生成 prompt 中 LaTeX 规则从 76 行完整规范降级为 4 行兜底
@@ -146,6 +151,14 @@ nohup streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.
   - `_clean_mimo_output()` 行级过滤误删评价中的改进建议（如"首先，你需要..."、"这道题的核心是..."、"根据定理..."）
   - 修复：检测到评价格式标记（`[总分]`/`[概念理解]`/`[解题正确性]`等）时跳过行级过滤
   - 同时将评价格式标记加入 `_answer_markers`，确保 AI 思考前缀被截断但评价内容完整保留
+
+- **2026-06-20 资料生成文档修复**:
+  - `_ai_output_to_docx_via_pandoc` 回退橘色原版：纯 pandoc + MathML，删掉三级 fallback 和粗体 strip
+  - 模板字体宋体→等线，解决 Word 中文渲染偏黑（WPS/手机端无此问题）
+  - 按钮 `🚀 生成资料` → `生成资料`（去 emoji）
+  - 本地安装 Pandoc 3.6.4 (`C:\Users\zy\pandoc\pandoc-3.6.4\`)
+  - 英语专家模块对照确认无缺失（仅 emoji 差异）
+  - Pandoc 依赖 PATH，启动 Streamlit 需确保 pandoc 在 PATH 中
 
 - **2026-06-18~19 对照橘色原版全面修复** (commit a2a9e34):
   - **复习窗口**: HTML 固定卡片 → `st.expander` 折叠 + `get_review_candidates()` 遗忘曲线 + `update_memory()` 写 DB + demo 假数据移除
@@ -163,6 +176,7 @@ nohup streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.
 > **每次会话结束时更新此章节，下次新会话自动加载。**
 
 - **进行中**: 无
-- **待办**: 老板 review 后进行后续修改；资料显示/文档生成修复（⑥）；错题库功能找回
-- **上次会话**: 2026-06-18~19 — 参考旧版复习窗口/Q&A流式/费曼评分/出题自测/知识点入库全部完成，commit a2a9e34
-- **下次启动提示**: "参考橘色原版继续优化，待办：⑥资料显示文档生成、错题库功能"
+- **待办**: 老板 review PR #7；错题库功能找回；备考看板图标等高问题
+- **上次会话**: 2026-06-20 — 资料生成文档修复完成：回退 pandoc 函数、模板换等线、本地装 pandoc、去 emoji
+- **下次启动提示**: "资料生成已修复，模板字体为等线。Pandoc 3.6.4 已安装在 C:\Users\zy\pandoc\pandoc-3.6.4\，启动 Streamlit 前确保 PATH 包含该目录。待办：错题库、看板图标。"
+- **备份**: `C:\Users\zy\kaoyan-assistant-照搬版本`
